@@ -11,7 +11,7 @@ import os
 from io import BytesIO # <--- 導入 BytesIO
 import math
 
-st.set_page_config(page_title="工廠安裝日記", layout="wide")
+st.set_page_config(page_title="裝機日記生成器", layout="wide")
 st.title("🛠️ 裝機日記生成器")
 
 # --- 基本資料欄位 ---
