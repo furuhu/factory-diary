@@ -34,14 +34,14 @@ cols_jp = st.columns(len(role_types) + 1)
 cols_jp[0].markdown("#### 日商人員")
 staff_data['日商人員'] = []
 for i, role in enumerate(role_types):
-    count = cols_jp[i+1].number_input(f"商-{role}", min_value=0, step=1, key=f"jp_{role}")
+    count = cols_jp[i+1].number_input(f"日商-{role}", min_value=0, step=1, key=f"jp_{role}")
     staff_data['日商人員'].append(count)
 
 cols_sub = st.columns(len(role_types) + 1)
 cols_sub[0].markdown("#### 外包人員")
 staff_data['外包人員'] = []
 for i, role in enumerate(role_types):
-    count = cols_sub[i+1].number_input(f"包-{role}", min_value=0, step=1, key=f"sub_{role}")
+    count = cols_sub[i+1].number_input(f"外包-{role}", min_value=0, step=1, key=f"sub_{role}")
     staff_data['外包人員'].append(count)
 
 
