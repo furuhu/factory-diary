@@ -6,9 +6,9 @@ from openpyxl.styles import Font, Border, Side, Alignment
 from PIL import Image as PILImage, ImageOps
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.utils import get_column_letter
-from openpyxl.cell import MergedCell # 雖然不直接用它判斷，但了解它有幫助
+from openpyxl.cell import MergedCell
 import os
-from io import BytesIO # <--- 導入 BytesIO
+from io import BytesIO
 import math
 
 st.set_page_config(page_title="工廠安裝日記", layout="wide")
@@ -26,17 +26,21 @@ with col3:
 
 # --- 人員配置 ---
 st.header("👥 人力配置")
-st.write("請填寫日商人員與外包人員的分類人數")
+# 更新說明文字以匹配類別
+st.write("請填寫供應商人員與外包人員的分類人數")
 role_types = ["機械", "電機", "土木", "軟體"]
 staff_data = {}
 
-cols_jp = st.columns(len(role_types) + 1)
-cols_jp[0].markdown("#### 供應商人員")
-staff_data['供應商人員'] = []
+# 供應商人員輸入
+cols_sup = st.columns(len(role_types) + 1)
+cols_sup[0].markdown("#### 供應商人員") # 標籤已是 供應商人員
+staff_data['供應商人員'] = []           # 字典鍵已是 供應商人員
 for i, role in enumerate(role_types):
-    count = cols_jp[i+1].number_input(f"供應商-{role}", min_value=0, step=1, key=f"jp_{role}")
-    staff_data['供應商人員'].append(count)
+    # 輸入框標籤已是 供應商人員, 將 key 改為 sup_{role} 更清晰
+    count = cols_sup[i+1].number_input(f"供應商-{role}", min_value=0, step=1, key=f"sup_{role}")
+    staff_data['供應商人員'].append(count) # 添加到正確的列表
 
+# 外包人員輸入 (保持不變)
 cols_sub = st.columns(len(role_types) + 1)
 cols_sub[0].markdown("#### 外包人員")
 staff_data['外包人員'] = []
@@ -94,15 +98,13 @@ photos = st.file_uploader(
 
 # --- 產生 Excel 按鈕 ---
 if st.button("✅ 產出 Excel"):
-        # +++++ DEBUGGING START +++++
-    st.subheader("--- DEBUG INFO ---")
-    st.write("Collected staff_data right after button click:")
-    st.write(staff_data) # <<<<<<<<<<<< 加入這行
-    st.write("--------------------")
-    # +++++ DEBUGGING END ++++++
-    
-    # if not photos:
-    #     st.warning("尚未上傳任何照片。確定要產生沒有照片的報告嗎？")
+
+    # ----- 移除 DEBUG 代碼 -----
+    # st.subheader("--- DEBUG INFO ---")
+    # st.write("Collected staff_data right after button click:")
+    # st.write(staff_data)
+    # st.write("--------------------")
+    # --------------------------
 
     wb = Workbook()
     ws = wb.active
@@ -132,15 +134,10 @@ if st.button("✅ 產出 Excel"):
 
     current_row = 1
 
-    # --- 輔助函數：寫入儲存格並套用樣式 (保持不變) ---
-    # 這個函數現在只應該被呼叫來寫入 *非合併* 儲存格，或者合併儲存格的 *左上角* 儲存格
+    # --- 輔助函數：寫入儲存格並套用樣式 ---
     def write_styled_cell(row, col, value, font, alignment, border=thin_border):
-        # 獲取儲存格，如果它是 MergedCell，也沒關係，因為下面只設置樣式
         cell = ws.cell(row=row, column=col)
-        # *** 重要：只在它不是 MergedCell 的一部分時才設置值（或者它是合併區的左上角）***
-        # 爲了簡化，我們假設呼叫此函數時，如果目標是合併區，則一定是左上角
-        # 最安全的做法是在呼叫前判斷，或者修改此函數增加 isinstance(cell, MergedCell) 判斷
-        # 這裡我們先假設呼叫者會正確使用 (即只對左上角儲存格設定 value)
+        # 基本假設：此函數只用於寫入非合併儲存格或合併儲存格的左上角
         cell.value = value
         cell.font = font
         cell.alignment = alignment
@@ -151,7 +148,6 @@ if st.button("✅ 產出 Excel"):
              ws.row_dimensions[row].height = DEFAULT_ROW_HEIGHT
 
     # --- 輔助函數：僅應用樣式到儲存格 ---
-    # 這個函數用來對合併區域內的其他儲存格應用樣式
     def apply_styles_only(row, col, font, alignment, border=thin_border):
          cell = ws.cell(row=row, column=col)
          # 不設定 cell.value
@@ -159,7 +155,6 @@ if st.button("✅ 產出 Excel"):
          cell.alignment = alignment
          if border:
              cell.border = border
-         # 確保列高被設定
          current_height = ws.row_dimensions[row].height
          if current_height is None or current_height < DEFAULT_ROW_HEIGHT:
               ws.row_dimensions[row].height = DEFAULT_ROW_HEIGHT
@@ -168,30 +163,23 @@ if st.button("✅ 產出 Excel"):
     # --- 寫入基本資訊 ---
     ws.merge_cells(start_row=current_row, start_column=2, end_row=current_row, end_column=NUM_COLS_TOTAL)
     write_styled_cell(current_row, 1, "日期", bold_font, center_align_wrap)
-    write_styled_cell(current_row, 2, str(install_date), normal_font, center_align_wrap) # 寫入左上角 B1
-    # ******** 修改處 ********
-    # 對合併區域內的其他儲存格 (C1 到 F1) 僅應用樣式
+    write_styled_cell(current_row, 2, str(install_date), normal_font, center_align_wrap)
     for c in range(3, NUM_COLS_TOTAL + 1):
         apply_styles_only(current_row, c, normal_font, center_align_wrap, thin_border)
-    # ***********************
     current_row += 1
 
     ws.merge_cells(start_row=current_row, start_column=2, end_row=current_row, end_column=NUM_COLS_TOTAL)
     write_styled_cell(current_row, 1, "天氣", bold_font, center_align_wrap)
-    write_styled_cell(current_row, 2, weather, normal_font, center_align_wrap) # 寫入左上角 B2
-    # ******** 修改處 ********
+    write_styled_cell(current_row, 2, weather, normal_font, center_align_wrap)
     for c in range(3, NUM_COLS_TOTAL + 1):
         apply_styles_only(current_row, c, normal_font, center_align_wrap, thin_border)
-    # ***********************
     current_row += 1
 
     ws.merge_cells(start_row=current_row, start_column=2, end_row=current_row, end_column=NUM_COLS_TOTAL)
     write_styled_cell(current_row, 1, "記錄人", bold_font, center_align_wrap)
-    write_styled_cell(current_row, 2, recorder, normal_font, center_align_wrap) # 寫入左上角 B3
-    # ******** 修改處 ********
+    write_styled_cell(current_row, 2, recorder, normal_font, center_align_wrap)
     for c in range(3, NUM_COLS_TOTAL + 1):
         apply_styles_only(current_row, c, normal_font, center_align_wrap, thin_border)
-    # ***********************
     current_row += 1
 
     ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT # 空行
@@ -199,122 +187,131 @@ if st.button("✅ 產出 Excel"):
 
     # --- 寫入人力配置 ---
     header_staff = ["人員分類", *role_types, "總計"]
-    # 人力配置標題不合併，所以直接用 write_styled_cell
     for col_idx, header_text in enumerate(header_staff, 1):
         if col_idx <= NUM_COLS_TOTAL:
             write_styled_cell(current_row, col_idx, header_text, bold_font, center_align_wrap)
     current_row += 1
 
-    # 人力配置數據不合併
-    for group in ["日商人員", "外包人員"]:
-        total = sum(staff_data[group])
-        row_data = [group, *staff_data[group], total]
+    # ******** 主要修改處 ********
+    # 使用 '供應商人員' 作為循環的鍵名
+    for group in ["供應商人員", "外包人員"]:
+    # ***************************
+        # 使用 .get 獲取數據，如果鍵不存在則返回空列表，避免 KeyError
+        group_counts = staff_data.get(group, [])
+
+        # 檢查列表是否真的是數字列表 (以防萬一之前的奇怪格式問題)
+        processed_counts = []
+        valid_data = True
+        if isinstance(group_counts, list):
+            for item in group_counts:
+                if isinstance(item, (int, float)):
+                    processed_counts.append(item)
+                else:
+                    # 嘗試轉換，如果失敗則標記為無效數據
+                    try:
+                        processed_counts.append(int(item))
+                    except (ValueError, TypeError):
+                        valid_data = False
+                        st.warning(f"在 '{group}' 中發現無法處理的數據: {item}，總計可能不準確。")
+                        processed_counts.append(0) # 或者跳過？這裡設為0
+        else:
+             valid_data = False
+             st.warning(f"'{group}' 的數據格式不正確 (不是列表)，總計可能不準確。")
+             processed_counts = [0] * len(role_types) # 創建一個默認的 0 列表
+
+
+        # 如果數據有效或至少處理過，計算總和
+        total = sum(processed_counts) if valid_data or processed_counts else 0
+
+        row_data = [group, *processed_counts, total]
+
+        # 寫入該行的每個儲存格
         for col_idx, cell_value in enumerate(row_data, 1):
              if col_idx <= NUM_COLS_TOTAL:
                 align = left_align_wrap if col_idx == 1 else center_align_wrap
                 write_styled_cell(current_row, col_idx, cell_value, normal_font, align)
-    current_row += 1
+
+        current_row += 1 # 換行處理下一個 group
 
     ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT # 空行
     current_row += 1
 
     # --- 寫入裝機進度 ---
     if progress_entries:
-        ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=NUM_COLS_TOTAL) # 合併 A 到 F
-        write_styled_cell(current_row, 1, "裝機進度", bold_font, center_align_wrap) # 寫入左上角 A
-        # ******** 修改處 ********
-        for c in range(2, NUM_COLS_TOTAL + 1): # 對 B 到 F 僅應用樣式
+        ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=NUM_COLS_TOTAL)
+        write_styled_cell(current_row, 1, "裝機進度", bold_font, center_align_wrap)
+        for c in range(2, NUM_COLS_TOTAL + 1):
             apply_styles_only(current_row, c, bold_font, center_align_wrap, thin_border)
-        # ***********************
         current_row += 1
 
-        # 細項標題列處理
         header_progress = ["機台", "項次", "內容", "人力", "備註"]
-        write_styled_cell(current_row, 1, header_progress[0], bold_font, center_align_wrap) # 機台 (A)
-        write_styled_cell(current_row, 2, header_progress[1], bold_font, center_align_wrap) # 項次 (B)
-        ws.merge_cells(start_row=current_row, start_column=3, end_row=current_row, end_column=4) # 內容 (C+D)
-        write_styled_cell(current_row, 3, header_progress[2], bold_font, center_align_wrap) # 寫入左上角 C
-        # ******** 修改處 ********
-        apply_styles_only(current_row, 4, bold_font, center_align_wrap, thin_border) # 對 D 僅應用樣式
-        # ***********************
-        write_styled_cell(current_row, 5, header_progress[3], bold_font, center_align_wrap) # 人力 (E)
-        write_styled_cell(current_row, 6, header_progress[4], bold_font, center_align_wrap) # 備註 (F)
+        write_styled_cell(current_row, 1, header_progress[0], bold_font, center_align_wrap)
+        write_styled_cell(current_row, 2, header_progress[1], bold_font, center_align_wrap)
+        ws.merge_cells(start_row=current_row, start_column=3, end_row=current_row, end_column=4)
+        write_styled_cell(current_row, 3, header_progress[2], bold_font, center_align_wrap)
+        apply_styles_only(current_row, 4, bold_font, center_align_wrap, thin_border)
+        write_styled_cell(current_row, 5, header_progress[3], bold_font, center_align_wrap)
+        write_styled_cell(current_row, 6, header_progress[4], bold_font, center_align_wrap)
         current_row += 1
 
-        # 裝機進度數據列處理
         for row_data in progress_entries:
             machine, item, content, manpower, note = row_data
             write_styled_cell(current_row, 1, machine, normal_font, left_align_wrap)
             write_styled_cell(current_row, 2, item, normal_font, center_align_wrap)
-            ws.merge_cells(start_row=current_row, start_column=3, end_row=current_row, end_column=4) # 合併內容 (C+D)
-            write_styled_cell(current_row, 3, content, normal_font, left_align_wrap) # 寫入左上角 C
-            # ******** 修改處 ********
-            apply_styles_only(current_row, 4, normal_font, left_align_wrap, thin_border) # 對 D 僅應用樣式
-            # ***********************
+            ws.merge_cells(start_row=current_row, start_column=3, end_row=current_row, end_column=4)
+            write_styled_cell(current_row, 3, content, normal_font, left_align_wrap)
+            apply_styles_only(current_row, 4, normal_font, left_align_wrap, thin_border)
             write_styled_cell(current_row, 5, manpower, normal_font, center_align_wrap)
             write_styled_cell(current_row, 6, note, normal_font, left_align_wrap)
             current_row += 1
 
-        ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT # 空行
+        ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT
         current_row += 1
 
     # --- 寫入週邊工作 ---
     if side_entries:
-        ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=NUM_COLS_TOTAL) # 合併 A 到 F
-        write_styled_cell(current_row, 1, "週邊工作", bold_font, center_align_wrap) # 寫入左上角 A
-        # ******** 修改處 ********
-        for c in range(2, NUM_COLS_TOTAL + 1): # 對 B 到 F 僅應用樣式
+        ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=NUM_COLS_TOTAL)
+        write_styled_cell(current_row, 1, "週邊工作", bold_font, center_align_wrap)
+        for c in range(2, NUM_COLS_TOTAL + 1):
             apply_styles_only(current_row, c, bold_font, center_align_wrap, thin_border)
-        # ***********************
         current_row += 1
 
-        # 細項標題列處理
         header_side = ["項次", "內容", "人力", "備註"]
-        write_styled_cell(current_row, 1, header_side[0], bold_font, center_align_wrap) # 項次 (A)
-        ws.merge_cells(start_row=current_row, start_column=2, end_row=current_row, end_column=4) # 內容 (B+C+D)
-        write_styled_cell(current_row, 2, header_side[1], bold_font, center_align_wrap) # 寫入左上角 B
-        # ******** 修改處 ********
-        apply_styles_only(current_row, 3, bold_font, center_align_wrap, thin_border) # 對 C 僅應用樣式
-        apply_styles_only(current_row, 4, bold_font, center_align_wrap, thin_border) # 對 D 僅應用樣式
-        # ***********************
-        write_styled_cell(current_row, 5, header_side[2], bold_font, center_align_wrap) # 人力 (E)
-        write_styled_cell(current_row, 6, header_side[3], bold_font, center_align_wrap) # 備註 (F)
+        write_styled_cell(current_row, 1, header_side[0], bold_font, center_align_wrap)
+        ws.merge_cells(start_row=current_row, start_column=2, end_row=current_row, end_column=4)
+        write_styled_cell(current_row, 2, header_side[1], bold_font, center_align_wrap)
+        apply_styles_only(current_row, 3, bold_font, center_align_wrap, thin_border)
+        apply_styles_only(current_row, 4, bold_font, center_align_wrap, thin_border)
+        write_styled_cell(current_row, 5, header_side[2], bold_font, center_align_wrap)
+        write_styled_cell(current_row, 6, header_side[3], bold_font, center_align_wrap)
         current_row += 1
 
-        # 週邊工作數據列處理
         for row_data in side_entries:
             item, content, manpower, note = row_data
             write_styled_cell(current_row, 1, item, normal_font, center_align_wrap)
-            ws.merge_cells(start_row=current_row, start_column=2, end_row=current_row, end_column=4) # 合併內容 (B+C+D)
-            write_styled_cell(current_row, 2, content, normal_font, left_align_wrap) # 寫入左上角 B
-            # ******** 修改處 ********
-            apply_styles_only(current_row, 3, normal_font, left_align_wrap, thin_border) # 對 C 僅應用樣式
-            apply_styles_only(current_row, 4, normal_font, left_align_wrap, thin_border) # 對 D 僅應用樣式
-            # ***********************
+            ws.merge_cells(start_row=current_row, start_column=2, end_row=current_row, end_column=4)
+            write_styled_cell(current_row, 2, content, normal_font, left_align_wrap)
+            apply_styles_only(current_row, 3, normal_font, left_align_wrap, thin_border)
+            apply_styles_only(current_row, 4, normal_font, left_align_wrap, thin_border)
             write_styled_cell(current_row, 5, manpower, normal_font, center_align_wrap)
             write_styled_cell(current_row, 6, note, normal_font, left_align_wrap)
             current_row += 1
 
-        ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT # 空行
+        ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT
         current_row += 1
 
     # --- 處理圖片區域 ---
     if photos:
-        ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT # 分隔空行
-        current_row += 1
-
-        ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=NUM_COLS_TOTAL) # 合併圖片標題 A 到 F
-        # 對標題列左上角應用樣式，不加邊框
-        write_styled_cell(current_row, 1, "進度留影", bold_font, center_align_wrap, border=None)
-        # ******** 修改處 ********
-        # 對合併區域的其他儲存格 (B 到 F) 也應用樣式且不加邊框
-        for c in range(2, NUM_COLS_TOTAL + 1):
-            apply_styles_only(current_row, c, bold_font, center_align_wrap, border=None)
-        # ***********************
         ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT
         current_row += 1
 
-        # 計算圖片大小 (保持不變)
+        ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=NUM_COLS_TOTAL)
+        write_styled_cell(current_row, 1, "進度留影", bold_font, center_align_wrap, border=None)
+        for c in range(2, NUM_COLS_TOTAL + 1):
+            apply_styles_only(current_row, c, bold_font, center_align_wrap, border=None)
+        ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT
+        current_row += 1
+
         try:
             default_char_width_approx = 7
             target_img_width_px = int(DEFAULT_COL_WIDTH * 3 * default_char_width_approx)
@@ -324,13 +321,12 @@ if st.button("✅ 產出 Excel"):
         target_img_height_pt = IMAGE_ROW_HEIGHT - 10
         target_img_height_px = int(target_img_height_pt / 0.75)
 
-        # 開始放置圖片 (保持不變，因為內部的合併是在說明列，處理邏輯已包含)
         img_col_width = 3
         num_img_cols = 2
 
         for i in range(0, len(photos), num_img_cols):
-            ws.row_dimensions[current_row].height = IMAGE_ROW_HEIGHT      # 圖片列
-            ws.row_dimensions[current_row + 1].height = DEFAULT_ROW_HEIGHT  # 說明列
+            ws.row_dimensions[current_row].height = IMAGE_ROW_HEIGHT
+            ws.row_dimensions[current_row + 1].height = DEFAULT_ROW_HEIGHT
 
             for j in range(num_img_cols):
                 photo_index = i + j
@@ -364,20 +360,13 @@ if st.button("✅ 產出 Excel"):
 
                         col_end = col_start + img_col_width - 1
                         merge_range_caption = f"{get_column_letter(col_start)}{current_row + 1}:{get_column_letter(col_end)}{current_row + 1}"
-                        ws.merge_cells(merge_range_caption) # 合併說明列儲存格
-                        # 寫入左上角說明文字
+                        ws.merge_cells(merge_range_caption)
                         write_styled_cell(current_row + 1, col_start, f"說明：{filename}", normal_font, center_align_wrap)
-                        # ******** 修改處 ********
-                        # 對說明列合併區域的其他儲存格 (如果有的話) 僅應用樣式
                         for c_idx in range(col_start + 1, col_end + 1):
                              apply_styles_only(current_row + 1, c_idx, normal_font, center_align_wrap, thin_border)
-                        # ***********************
 
-                        # 為圖片所在的儲存格區域添加邊框 (保持不變)
                         for r_idx in [current_row]:
                             for c_idx in range(col_start, col_end + 1):
-                                cell = ws.cell(row=r_idx, column=c_idx)
-                                # 不需要設定 value，但要確保應用樣式
                                 apply_styles_only(r_idx, c_idx, normal_font, Alignment(vertical="center"), thin_border)
 
 
@@ -388,10 +377,8 @@ if st.button("✅ 產出 Excel"):
                         merge_range_caption = f"{get_column_letter(col_start)}{current_row + 1}:{get_column_letter(col_end)}{current_row + 1}"
                         ws.merge_cells(merge_range_caption)
                         write_styled_cell(current_row + 1, col_start, f"圖片錯誤: {filename}", normal_font, center_align_wrap)
-                        # ******** 修改處 ********
                         for c_idx in range(col_start + 1, col_end + 1):
                              apply_styles_only(current_row + 1, c_idx, normal_font, center_align_wrap, thin_border)
-                        # ***********************
 
             current_row += 2
 
