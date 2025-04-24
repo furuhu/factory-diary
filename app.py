@@ -14,12 +14,6 @@ import math
 st.set_page_config(page_title="裝機日記生成器", layout="wide")
 st.title("🛠️ 裝機日記生成器")
 
-# 設定固定欄寬和預設列高 --- 應該在使用之前定義
-NUM_COLS_TOTAL = 6
-DEFAULT_COL_WIDTH = 18
-DEFAULT_ROW_HEIGHT = 25
-IMAGE_ROW_HEIGHT = 120
-
 # --- 基本資料欄位 ---
 st.header("📅 基本資訊")
 col1, col2, col3 = st.columns(3)
