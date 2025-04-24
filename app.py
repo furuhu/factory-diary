@@ -11,8 +11,8 @@ import os
 from io import BytesIO # <--- 導入 BytesIO
 import math
 
-st.set_page_config(page_title="裝機日記生成器", layout="wide")
-st.title("🛠️ 裝機日記生成器")
+st.set_page_config(page_title="工廠安裝日記", layout="wide")
+st.title("🛠️ 工廠安裝日記自動生成器")
 
 # --- 基本資料欄位 ---
 st.header("📅 基本資訊")
@@ -34,14 +34,14 @@ cols_jp = st.columns(len(role_types) + 1)
 cols_jp[0].markdown("#### 日商人員")
 staff_data['日商人員'] = []
 for i, role in enumerate(role_types):
-    count = cols_jp[i+1].number_input(f"日商-{role}", min_value=0, step=1, key=f"jp_{role}")
+    count = cols_jp[i+1].number_input(f"商-{role}", min_value=0, step=1, key=f"jp_{role}")
     staff_data['日商人員'].append(count)
 
 cols_sub = st.columns(len(role_types) + 1)
 cols_sub[0].markdown("#### 外包人員")
 staff_data['外包人員'] = []
 for i, role in enumerate(role_types):
-    count = cols_sub[i+1].number_input(f"外包-{role}", min_value=0, step=1, key=f"sub_{role}")
+    count = cols_sub[i+1].number_input(f"包-{role}", min_value=0, step=1, key=f"sub_{role}")
     staff_data['外包人員'].append(count)
 
 
@@ -198,15 +198,15 @@ if st.button("✅ 產出 Excel"):
             write_styled_cell(current_row, col_idx, header_text, bold_font, center_align_wrap)
     current_row += 1
 
-# 人力配置數據不合併
-for group in ["日商人員", "外包人員"]:
-    total = sum(staff_data[group])
-    row_data = [group, *staff_data[group], total]
-    for col_idx, cell_value in enumerate(row_data, 1):
-         if col_idx <= NUM_COLS_TOTAL:
-            align = left_align_wrap if col_idx == 1 else center_align_wrap
-            write_styled_cell(current_row, col_idx, cell_value, normal_font, align)
-    current_row += 1  # 在這裡增加縮排，每處理完一個群組就增加行指針
+    # 人力配置數據不合併
+    for group in ["日商人員", "外包人員"]:
+        total = sum(staff_data[group])
+        row_data = [group, *staff_data[group], total]
+        for col_idx, cell_value in enumerate(row_data, 1):
+             if col_idx <= NUM_COLS_TOTAL:
+                align = left_align_wrap if col_idx == 1 else center_align_wrap
+                write_styled_cell(current_row, col_idx, cell_value, normal_font, align)
+    current_row += 1
 
     ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT # 空行
     current_row += 1
