@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import date
 from openpyxl import Workbook
 from openpyxl.styles import Font, Border, Side, Alignment
+# ImageOps 已經導入，用於 fit 功能
 from PIL import Image as PILImage, ImageOps
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.utils import get_column_letter
@@ -119,7 +120,7 @@ if st.button("✅ 產出 Excel"):
     # --- 設定固定欄寬和預設列高 ---
     DEFAULT_COL_WIDTH = 18
     DEFAULT_ROW_HEIGHT = 25
-    IMAGE_ROW_HEIGHT = 120
+    IMAGE_ROW_HEIGHT = 120 # 圖片列的目標高度 (單位: points)
     NUM_COLS_TOTAL = 6
     for i in range(1, NUM_COLS_TOTAL + 1): ws.column_dimensions[get_column_letter(i)].width = DEFAULT_COL_WIDTH
     current_row = 1
@@ -155,15 +156,6 @@ if st.button("✅ 產出 Excel"):
     write_styled_cell(current_row, 2, weather, normal_font, center_align_wrap)
     for c in range(3, NUM_COLS_TOTAL + 1): apply_styles_only(current_row, c, normal_font, center_align_wrap, thin_border)
     current_row += 1
-
-    # ******** 移除頂部記錄人區塊 ********
-    # ws.merge_cells(start_row=current_row, start_column=2, end_row=current_row, end_column=NUM_COLS_TOTAL) # B:F
-    # write_styled_cell(current_row, 1, "記錄人", bold_font, center_align_wrap) # A
-    # write_styled_cell(current_row, 2, recorder, normal_font, center_align_wrap) # B (左上角)
-    # for c in range(3, NUM_COLS_TOTAL + 1): apply_styles_only(current_row, c, normal_font, center_align_wrap, thin_border) # C-F 樣式
-    # current_row += 1
-    # ************************************
-
     # 空一行
     ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT
     current_row += 1
@@ -239,31 +231,72 @@ if st.button("✅ 產出 Excel"):
         write_styled_cell(current_row, 1, "進度留影", bold_font, center_align_wrap, border=None)
         for c in range(2, NUM_COLS_TOTAL + 1): apply_styles_only(current_row, c, bold_font, center_align_wrap, border=None)
         ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT; current_row += 1
-        try: default_char_width_approx = 7; target_img_width_px = int(DEFAULT_COL_WIDTH * 3 * default_char_width_approx)
-        except: target_img_width_px = int(18 * 3 * 7)
-        target_img_height_pt = IMAGE_ROW_HEIGHT - 10; target_img_height_px = int(target_img_height_pt / 0.75)
+
+        # --- 計算圖片目標像素尺寸 (用於裁剪) ---
+        try:
+            # 估算 3 個欄位的像素寬度 (非常粗略)
+            default_char_width_approx = 7
+            target_img_width_px = int(DEFAULT_COL_WIDTH * 3 * default_char_width_approx)
+        except:
+            target_img_width_px = int(18 * 3 * 7) # Fallback
+
+        # 將列高 (points) 轉換為像素 (基於 96 DPI, 1 point = 1/72 inch, 1 inch = 96 px => 1 point = 96/72 = 4/3 px)
+        # 或者更常見的轉換是基於 72 DPI (1 point = 1 pixel)，但 Excel 列高更接近 96 DPI
+        # 這裡使用 1 point = 0.75 pixel 的倒數，即 1 point = 4/3 pixel
+        # target_img_height_px = int(IMAGE_ROW_HEIGHT * (4/3)) # 另一種轉換方式
+        # 使用之前驗證過的 0.75 轉換 (1 pixel = 0.75 point)
+        target_img_height_px = int(IMAGE_ROW_HEIGHT / 0.75) # 使用完整的列高進行裁剪
+
+        # 圖片排列設定
         img_col_width = 3; num_img_cols = 2
+
+        # 遍歷照片並放置
         for i in range(0, len(photos), num_img_cols):
-            ws.row_dimensions[current_row].height = IMAGE_ROW_HEIGHT; ws.row_dimensions[current_row + 1].height = DEFAULT_ROW_HEIGHT
+            ws.row_dimensions[current_row].height = IMAGE_ROW_HEIGHT # 設定圖片列的目標高度
+            ws.row_dimensions[current_row + 1].height = DEFAULT_ROW_HEIGHT # 說明列高度
+
             for j in range(num_img_cols):
                 photo_index = i + j
                 if photo_index < len(photos):
                     img_file = photos[photo_index]; filename = img_file.name
                     try:
-                        img = PILImage.open(img_file); img = ImageOps.exif_transpose(img)
-                        img_w, img_h = img.size; assert img_w > 0 and img_h > 0
-                        ratio = min(target_img_width_px / img_w, target_img_height_px / img_h)
-                        img_resized = img.resize((int(img_w*ratio), int(img_h*ratio)), PILImage.Resampling.LANCZOS) if ratio < 1.0 else img
-                        img_buffer = BytesIO(); img_resized.save(img_buffer, format='PNG'); img_buffer.seek(0)
+                        # 讀取、校正方向
+                        img = PILImage.open(img_file)
+                        img = ImageOps.exif_transpose(img)
+                        img_w, img_h = img.size
+                        if img_w == 0 or img_h == 0: raise ValueError("圖片寬高為0")
+
+                        # ******** 修改：使用 ImageOps.fit 進行縮放和置中裁剪 ********
+                        target_size = (target_img_width_px, target_img_height_px)
+                        # method=PILImage.Resampling.LANCZOS 提供較好的縮放品質
+                        img_cropped = ImageOps.fit(img, target_size, method=PILImage.Resampling.LANCZOS)
+                        # **********************************************************
+
+                        # 將裁剪後的圖片存入記憶體緩衝區
+                        img_buffer = BytesIO()
+                        img_cropped.save(img_buffer, format='PNG') # 使用裁剪後的 img_cropped
+                        img_buffer.seek(0)
+
+                        # 計算圖片放置位置
                         col_start = 1 + j * img_col_width; anchor_cell = f"{get_column_letter(col_start)}{current_row}"
-                        xl_img = XLImage(img_buffer); ws.add_image(xl_img, anchor_cell)
+
+                        # 添加圖片到 Excel
+                        xl_img = XLImage(img_buffer)
+                        # 注意：即使圖片被裁剪了，add_image 仍然只是將其錨定到左上角
+                        # 視覺上它會填滿，因為我們設定了列高 IMAGE_ROW_HEIGHT
+                        ws.add_image(xl_img, anchor_cell)
+
+                        # 合併圖片下方的說明儲存格並寫入文字
                         col_end = col_start + img_col_width - 1
                         merge_range_caption = f"{get_column_letter(col_start)}{current_row + 1}:{get_column_letter(col_end)}{current_row + 1}"
                         ws.merge_cells(merge_range_caption)
                         write_styled_cell(current_row + 1, col_start, f"說明：{filename}", normal_font, center_align_wrap)
                         for c_idx in range(col_start + 1, col_end + 1): apply_styles_only(current_row + 1, c_idx, normal_font, center_align_wrap, thin_border)
+
+                        # 為圖片所在的儲存格區域添加邊框
                         for r_idx in [current_row]:
                             for c_idx in range(col_start, col_end + 1): apply_styles_only(r_idx, c_idx, normal_font, Alignment(vertical="center"), thin_border)
+
                     except Exception as e:
                         st.error(f"處理圖片 {filename} 時發生錯誤: {e}")
                         col_start = 1 + j * img_col_width; col_end = col_start + img_col_width - 1
@@ -275,26 +308,19 @@ if st.button("✅ 產出 Excel"):
             current_row += 2
 
     # --- 區塊 6：添加記錄人資訊 (格式修正) ---
-    # current_row 在此應指向最後內容之後的下一行
-
-    # 添加一個空行分隔
-    ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT
+    ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT # 添加空行
     current_row += 1
 
-    # 準備記錄人文字
-    recorder_text = f"記錄人： {recorder}" # 使用從 UI 獲取的 recorder 變數
+    recorder_text = f"記錄人： {recorder}"
     merge_start_col = 1
-    merge_end_col = NUM_COLS_TOTAL # 合併 A 到 F (NUM_COLS_TOTAL 應為 6)
+    merge_end_col = NUM_COLS_TOTAL # 合併 A 到 F
     merge_range_recorder = f"{get_column_letter(merge_start_col)}{current_row}:{get_column_letter(merge_end_col)}{current_row}"
 
-    # 嘗試合併儲存格
-    try:
-        ws.merge_cells(merge_range_recorder)
+    try: ws.merge_cells(merge_range_recorder)
     except Exception as merge_err:
-         st.warning(f"合併記錄人儲存格時出錯: {merge_err}. 將只寫入 A 欄。")
-         merge_end_col = merge_start_col # Fallback
+         st.warning(f"合併記錄人儲存格時出錯: {merge_err}. 將只寫入 A 欄。"); merge_end_col = merge_start_col
 
-    # 寫入記錄人文字到左上角儲存格 (A欄)，並帶有邊框
+    # 寫入左上角儲存格 (A欄)，並帶有邊框
     write_styled_cell(current_row, merge_start_col, recorder_text, normal_font, left_align_wrap, border=thin_border)
 
     # 為合併區域的其他部分應用樣式，並帶有邊框
