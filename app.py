@@ -14,8 +14,8 @@ from io import BytesIO
 import math
 
 # --- Streamlit UI 設定 ---
-st.set_page_config(page_title="工廠安裝日記", layout="wide")
-st.title("🛠️ 工廠安裝日記自動生成器")
+st.set_page_config(page_title="工廠裝機日誌", layout="wide")
+st.title("🛠️ 工廠裝機日誌生成器")
 
 # --- 基本資料欄位 ---
 st.header("📅 基本資訊")
