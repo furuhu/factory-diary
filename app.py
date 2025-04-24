@@ -315,12 +315,12 @@ with col_export2:
         styles = getSampleStyleSheet()
         # 更新樣式以使用註冊的中文字體
         styles.add(ParagraphStyle(name='CJKNormal', parent=styles['Normal'], fontName=CJK_FONT_NAME, fontSize=10, alignment=TA_LEFT))
-        styles.add(ParagraphStyle(name='CJKBold', parent=styles['CJKNormal'], fontName=CJK_FONT_NAME, fontSize=10, alignment=TA_LEFT)) # 添加一個基礎粗體樣式
+        styles.add(ParagraphStyle(name='CJKBold', parent=styles['CJKNormal'], fontName=CJK_FONT_NAME, fontSize=10, alignment=TA_LEFT))
         styles.add(ParagraphStyle(name='CJKHeading1', parent=styles['h1'], fontName=CJK_FONT_NAME, fontSize=18, alignment=TA_CENTER, spaceAfter=12))
         styles.add(ParagraphStyle(name='CJKHeading2', parent=styles['h2'], fontName=CJK_FONT_NAME, fontSize=14, alignment=TA_LEFT, spaceAfter=6))
         styles.add(ParagraphStyle(name='CJKTableContent', parent=styles['Normal'], fontName=CJK_FONT_NAME, fontSize=9, alignment=TA_CENTER))
         styles.add(ParagraphStyle(name='CJKTableContentLeft', parent=styles['CJKTableContent'], alignment=TA_LEFT))
-        # ******** 修改：創建粗體的 Footer 樣式 ********
+        # ******** 修正：定義 CJKFooterBold 樣式 ********
         styles.add(ParagraphStyle(name='CJKFooterBold', parent=styles['Normal'], fontName=CJK_FONT_NAME, fontSize=9, alignment=TA_LEFT))
         # ********************************************
 
@@ -341,12 +341,8 @@ with col_export2:
             [Paragraph("<b>日期</b>", styles['CJKNormal']), Paragraph(str(install_date), styles['CJKNormal'])],
             [Paragraph("<b>天氣</b>", styles['CJKNormal']), Paragraph(weather, styles['CJKNormal'])],
         ]
-        # 確保表格寬度為 doc.width
         basic_info_table = Table(basic_info_data, colWidths=[doc_width/4, doc_width*3/4])
-        basic_info_table.setStyle(TableStyle([
-            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-        ]))
+        basic_info_table.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.grey), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
         story.append(basic_info_table)
         story.append(Spacer(1, 0.5*units.cm))
 
@@ -362,25 +358,13 @@ with col_export2:
                             [Paragraph(str(c), styles['CJKTableContent']) for c in processed_counts] + \
                             [Paragraph(str(total), styles['CJKTableContent'])]
             staff_table_data.append(row_data_text)
-
-        # ******** 修改：調整人力配置表格欄寬，使其總和為 doc.width ********
-        # 原始: 0.2 + 0.15*4 + 0.15 = 0.95
-        # 調整後: 將剩餘 0.05 分配給首尾 (或按比例調整)
-        # 方案：首尾各加 0.025
         staff_col_widths = [doc_width*0.225] + [doc_width*0.15]*len(role_types) + [doc_width*0.175]
-        # 驗證總和: 0.225 + 0.6 + 0.175 = 1.0
-        # ***************************************************************
-        staff_table = Table(staff_table_data, colWidths=staff_col_widths) # 使用調整後的寬度
-        staff_table.setStyle(TableStyle([
-            ('GRID', (0,0), (-1,-1), 0.5, colors.black),
-            ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('ALIGN', (1,0), (-1,-1), 'CENTER'), # 數字置中
-        ]))
+        staff_table = Table(staff_table_data, colWidths=staff_col_widths)
+        staff_table.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (1,0), (-1,-1), 'CENTER')]))
         story.append(staff_table)
         story.append(Spacer(1, 0.5*units.cm))
 
-        # 裝機進度表格 (欄寬總和已是 1.0 * doc.width)
+        # 裝機進度表格
         if progress_entries:
             story.append(Paragraph("裝機進度紀錄", styles['CJKHeading2']))
             progress_header = [Paragraph(f"<b>{h}</b>", styles['CJKTableContent']) for h in ["機台", "項次", "內容", "人力", "備註"]]
@@ -393,7 +377,7 @@ with col_export2:
             story.append(progress_table)
             story.append(Spacer(1, 0.5*units.cm))
 
-        # 週邊工作表格 (欄寬總和已是 1.0 * doc.width)
+        # 週邊工作表格
         if side_entries:
             story.append(Paragraph("週邊工作紀錄", styles['CJKHeading2']))
             side_header = [Paragraph(f"<b>{h}</b>", styles['CJKTableContent']) for h in ["項次", "內容", "人力", "備註"]]
@@ -448,9 +432,9 @@ with col_export2:
 
         # --- PDF 內容 - 結尾記錄人 ---
         story.append(Spacer(1, 1*units.cm))
-        # ******** 修改：使用粗體標籤 <b>...</b> ********
-        story.append(Paragraph(f"<b>記錄人： {recorder}</b>", styles['CJKFooter'])) # 使用 CJKFooter 基礎樣式，但內容加粗
-        # ********************************************
+        # ******** 修正：使用正確的樣式名 CJKFooterBold ********
+        story.append(Paragraph(f"<b>記錄人： {recorder}</b>", styles['CJKFooterBold'])) # 使用正確定義的樣式
+        # ****************************************************
 
         # --- 生成 PDF ---
         try:
@@ -464,4 +448,3 @@ with col_export2:
             st.error("可能的原因包括：中文字體問題、圖片處理錯誤或 ReportLab 內部錯誤。請檢查 Streamlit 終端輸出獲取更詳細的錯誤信息。")
 
 # --- Script End ---
-
