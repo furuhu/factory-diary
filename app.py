@@ -319,7 +319,13 @@ with col_export2:
         styles.add(ParagraphStyle(name='CJKHeading2', fontName=CJK_FONT_NAME, fontSize=14, leading=17, alignment=TA_LEFT, spaceBefore=6, spaceAfter=6))
         styles.add(ParagraphStyle(name='CJKTableContent', parent=styles['Normal'], fontName=CJK_FONT_NAME, fontSize=9, alignment=TA_CENTER))
         styles.add(ParagraphStyle(name='CJKTableContentLeft', parent=styles['CJKTableContent'], alignment=TA_LEFT))
-        styles.add(ParagraphStyle(name='CJKFooterBold', parent=styles['Normal'], fontName=CJK_FONT_NAME, fontSize=9, alignment=TA_LEFT))
+        # ******** 修改：定義新的 Footer 樣式，大小同 Heading2 ********
+        styles.add(ParagraphStyle(name='CJKFooterTitleBold', # 新樣式名稱
+                                  fontName=CJK_FONT_NAME,
+                                  fontSize=14,             # 與 CJKHeading2 相同大小
+                                  alignment=TA_LEFT,       # 靠左對齊
+                                  leading=17))             # 行距可選，參考 CJKHeading2
+        # *********************************************************
 
         # --- PDF 文件模板 ---
         doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, leftMargin=margin, rightMargin=margin, topMargin=margin, bottomMargin=margin, title=f"安裝日記_{install_date}", author="工廠安裝日記自動生成器")
@@ -373,18 +379,14 @@ with col_export2:
 
         if photos:
             img_margin = 0.5 * units.cm
-            # ******** 修改：使用三欄表格佈局圖片 ********
-            # 計算每張圖片的寬度
             img_width_pt = (doc_width - img_margin) / 2
-            img_height_pt = 6 * units.cm # 固定高度
-            # Pillow 裁剪尺寸
+            img_height_pt = 6 * units.cm
             target_width_px = int(img_width_pt * (4/3))
             target_height_px = int(img_height_pt * (4/3))
             target_size_px = (target_width_px, target_height_px)
 
             for i in range(0, len(photos), 2):
-                img_row_content = [] # 儲存這一行的內容 [img1, spacer, img2] 或 [img1, spacer, None]
-                # 處理左邊圖片
+                img_row_content = []
                 img_file_left = photos[i]
                 try:
                     img_pil_left = PILImage.open(img_file_left); img_pil_left = ImageOps.exif_transpose(img_pil_left)
@@ -396,10 +398,8 @@ with col_export2:
                     st.error(f"處理圖片 {img_file_left.name} 時發生錯誤: {img_err}")
                     img_row_content.append(Paragraph(f"[圖片錯誤: {img_file_left.name}]", styles['CJKNormal']))
 
-                # 添加中間的間隔
-                img_row_content.append(Spacer(img_margin, 1)) # 寬度為 img_margin, 高度隨意
+                img_row_content.append(Spacer(img_margin, 1))
 
-                # 處理右邊圖片 (如果存在)
                 if i + 1 < len(photos):
                     img_file_right = photos[i+1]
                     try:
@@ -412,22 +412,18 @@ with col_export2:
                         st.error(f"處理圖片 {img_file_right.name} 時發生錯誤: {img_err}")
                         img_row_content.append(Paragraph(f"[圖片錯誤: {img_file_right.name}]", styles['CJKNormal']))
                 else:
-                    # 如果是奇數張圖片，右邊留空
-                    img_row_content.append(Spacer(img_width_pt, img_height_pt)) # 用 Spacer 佔位
+                    img_row_content.append(Spacer(img_width_pt, img_height_pt))
 
-                # 創建三欄表格
                 img_table = Table([img_row_content], colWidths=[img_width_pt, img_margin, img_width_pt])
-                # 移除之前的 LEFTPADDING 樣式，設定垂直對齊
-                img_table.setStyle(TableStyle([
-                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ]))
+                img_table.setStyle(TableStyle([('VALIGN', (0,0), (-1,-1), 'TOP')]))
                 story.append(img_table)
-                story.append(Spacer(1, 0.5*units.cm)) # 行間距
-            # ******************************************
+                story.append(Spacer(1, 0.5*units.cm))
 
         # --- PDF 內容 - 結尾記錄人 ---
         story.append(Spacer(1, 1*units.cm))
-        story.append(Paragraph(f"<b>記錄人： {recorder}</b>", styles['CJKFooterBold']))
+        # ******** 修改：使用新的 CJKFooterTitleBold 樣式 ********
+        story.append(Paragraph(f"<b>記錄人： {recorder}</b>", styles['CJKFooterTitleBold']))
+        # *******************************************************
 
         # --- 生成 PDF ---
         try:
