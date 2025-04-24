@@ -317,12 +317,20 @@ with col_export2:
         styles.add(ParagraphStyle(name='CJKNormal', parent=styles['Normal'], fontName=CJK_FONT_NAME, fontSize=10, alignment=TA_LEFT))
         styles.add(ParagraphStyle(name='CJKBold', parent=styles['CJKNormal'], fontName=CJK_FONT_NAME, fontSize=10, alignment=TA_LEFT))
         styles.add(ParagraphStyle(name='CJKHeading1', parent=styles['h1'], fontName=CJK_FONT_NAME, fontSize=18, alignment=TA_CENTER, spaceAfter=12))
-        styles.add(ParagraphStyle(name='CJKHeading2', parent=styles['h2'], fontName=CJK_FONT_NAME, fontSize=14, alignment=TA_LEFT, spaceAfter=6))
+        # ******** 修改：確保 CJKHeading2 靠左對齊 ********
+        # 移除 parent 繼承，明確設定所有屬性，確保 alignment=TA_LEFT 生效
+        styles.add(ParagraphStyle(name='CJKHeading2',
+                                  fontName=CJK_FONT_NAME,
+                                  fontSize=14,
+                                  leading=17, # 參考 h2 的 leading
+                                  alignment=TA_LEFT, # 明確設為靠左
+                                  spaceBefore=6, # 參考 h2
+                                  spaceAfter=6))
+        # ********************************************
         styles.add(ParagraphStyle(name='CJKTableContent', parent=styles['Normal'], fontName=CJK_FONT_NAME, fontSize=9, alignment=TA_CENTER))
         styles.add(ParagraphStyle(name='CJKTableContentLeft', parent=styles['CJKTableContent'], alignment=TA_LEFT))
-        # ******** 修正：定義 CJKFooterBold 樣式 ********
+        # 定義粗體的 Footer 樣式
         styles.add(ParagraphStyle(name='CJKFooterBold', parent=styles['Normal'], fontName=CJK_FONT_NAME, fontSize=9, alignment=TA_LEFT))
-        # ********************************************
 
         # --- PDF 文件模板 ---
         doc = SimpleDocTemplate(pdf_buffer, pagesize=A4,
@@ -347,7 +355,7 @@ with col_export2:
         story.append(Spacer(1, 0.5*units.cm))
 
         # 人力配置表格
-        story.append(Paragraph("人力配置", styles['CJKHeading2']))
+        story.append(Paragraph("人力配置", styles['CJKHeading2'])) # 使用更新後的樣式
         staff_header = [Paragraph(f"<b>{h}</b>", styles['CJKTableContent']) for h in ["人員分類", *role_types, "總計"]]
         staff_table_data = [staff_header]
         for group in ["供應商人員", "外包人員"]:
@@ -358,6 +366,7 @@ with col_export2:
                             [Paragraph(str(c), styles['CJKTableContent']) for c in processed_counts] + \
                             [Paragraph(str(total), styles['CJKTableContent'])]
             staff_table_data.append(row_data_text)
+        # 修正欄寬以填滿 doc_width
         staff_col_widths = [doc_width*0.225] + [doc_width*0.15]*len(role_types) + [doc_width*0.175]
         staff_table = Table(staff_table_data, colWidths=staff_col_widths)
         staff_table.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (1,0), (-1,-1), 'CENTER')]))
@@ -366,7 +375,7 @@ with col_export2:
 
         # 裝機進度表格
         if progress_entries:
-            story.append(Paragraph("裝機進度紀錄", styles['CJKHeading2']))
+            story.append(Paragraph("裝機進度紀錄", styles['CJKHeading2'])) # 使用更新後的樣式
             progress_header = [Paragraph(f"<b>{h}</b>", styles['CJKTableContent']) for h in ["機台", "項次", "內容", "人力", "備註"]]
             progress_table_data = [progress_header]
             for entry in progress_entries:
@@ -379,7 +388,7 @@ with col_export2:
 
         # 週邊工作表格
         if side_entries:
-            story.append(Paragraph("週邊工作紀錄", styles['CJKHeading2']))
+            story.append(Paragraph("週邊工作紀錄", styles['CJKHeading2'])) # 使用更新後的樣式
             side_header = [Paragraph(f"<b>{h}</b>", styles['CJKTableContent']) for h in ["項次", "內容", "人力", "備註"]]
             side_table_data = [side_header]
             for entry in side_entries:
@@ -394,7 +403,7 @@ with col_export2:
         story.append(PageBreak())
 
         # --- PDF 內容 - 第二頁 (圖片) ---
-        story.append(Paragraph("進度留影", styles['CJKHeading2']))
+        story.append(Paragraph("進度留影", styles['CJKHeading2'])) # 使用更新後的樣式
         story.append(Spacer(1, 0.5*units.cm))
 
         if photos:
@@ -432,9 +441,9 @@ with col_export2:
 
         # --- PDF 內容 - 結尾記錄人 ---
         story.append(Spacer(1, 1*units.cm))
-        # ******** 修正：使用正確的樣式名 CJKFooterBold ********
-        story.append(Paragraph(f"<b>記錄人： {recorder}</b>", styles['CJKFooterBold'])) # 使用正確定義的樣式
-        # ****************************************************
+        # ******** 修改：使用粗體標籤 <b>...</b> 並使用 CJKFooterBold 樣式 ********
+        story.append(Paragraph(f"<b>記錄人： {recorder}</b>", styles['CJKFooterBold']))
+        # ******************************************************************
 
         # --- 生成 PDF ---
         try:
