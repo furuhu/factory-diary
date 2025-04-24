@@ -26,7 +26,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
 # --- Streamlit UI 設定 ---
-st.set_page_config(page_title="工廠安裝日記", layout="wide")
+st.set_page_config(page_title="工廠裝機日誌", layout="wide")
 
 # --- Try to Register CJK Font ---
 try:
@@ -38,7 +38,7 @@ except Exception as e:
     st.sidebar.warning(f"無法加載中文字體 STSong-Light ({e})，中文可能無法在 PDF 中正確顯示。將使用 {CJK_FONT_NAME}。")
 
 # --- Streamlit 應用程式標題 ---
-st.title("🛠️ 工廠安裝日記自動生成器")
+st.title("🛠️ 工廠裝機日誌生成器")
 
 # --- 基本資料欄位 ---
 st.header("📅 基本資訊")
@@ -115,7 +115,7 @@ with col_export1:
         # 創建 Excel 工作簿和工作表
         wb = Workbook()
         ws = wb.active
-        ws.title = "安裝日記"
+        ws.title = "安裝日誌"
 
         # --- 定義 Excel 樣式 ---
         bold_font = Font(name="標楷體", size=11, bold=True)
@@ -332,7 +332,7 @@ with col_export2:
         story = []
 
         # --- PDF 內容 - 第一頁 ---
-        story.append(Paragraph("工廠安裝日記", styles['CJKHeading1']))
+        story.append(Paragraph("工廠裝機日誌", styles['CJKHeading1']))
         story.append(Spacer(1, 0.5*units.cm))
         basic_info_data = [[Paragraph("<b>日期</b>", styles['CJKNormal']), Paragraph(str(install_date), styles['CJKNormal'])], [Paragraph("<b>天氣</b>", styles['CJKNormal']), Paragraph(weather, styles['CJKNormal'])]]
         basic_info_table = Table(basic_info_data, colWidths=[doc_width/4, doc_width*3/4])
