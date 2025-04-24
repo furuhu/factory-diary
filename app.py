@@ -25,21 +25,29 @@ from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
+# ******** 修改：將 set_page_config 移到最前面 ********
+# --- Streamlit UI 設定 ---
+# st.set_page_config() 必須是第一個 Streamlit 指令
+st.set_page_config(page_title="工廠安裝日記", layout="wide")
+# *****************************************************
+
 # --- Try to Register CJK Font ---
+# 現在可以在 set_page_config 之後執行字體註冊和側邊欄訊息
 # ReportLab 需要字體才能顯示中文。STSong-Light 是內建支援之一。
 # 如果環境中缺少必要的字體文件，這裡可能會失敗或顯示不正確。
 # 在生產環境中，最好是明確指定並提供字體文件路徑。
 try:
     pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
     CJK_FONT_NAME = 'STSong-Light'
+    # 顯示成功訊息到側邊欄
     st.sidebar.success("中文字體 (STSong-Light) 加載成功。")
 except Exception as e:
     CJK_FONT_NAME = 'Helvetica' # Fallback font
+    # 顯示警告訊息到側邊欄
     st.sidebar.warning(f"無法加載中文字體 STSong-Light ({e})，中文可能無法在 PDF 中正確顯示。將使用 {CJK_FONT_NAME}。")
 
-
-# --- Streamlit UI 設定 ---
-st.set_page_config(page_title="工廠裝機日記", layout="wide")
+# --- Streamlit 應用程式標題 ---
+# st.title() 可以在 set_page_config 之後
 st.title("🛠️ 工廠安裝日記自動生成器")
 
 # --- 基本資料欄位 ---
@@ -441,8 +449,6 @@ with col_export2:
             img_height_pt = 6 * units.cm
 
             # 計算 Pillow 裁剪用的像素尺寸 (假設 96 DPI)
-            # 1 inch = 2.54 cm = 72 points = 96 pixels (approx)
-            # 1 point = 96/72 = 4/3 pixels
             target_width_px = int(img_width_pt * (4/3))
             target_height_px = int(img_height_pt * (4/3))
             target_size_px = (target_width_px, target_height_px)
@@ -457,30 +463,25 @@ with col_export2:
                         try:
                             img_pil = PILImage.open(img_file)
                             img_pil = ImageOps.exif_transpose(img_pil)
-                            # 裁剪圖片
                             img_cropped = ImageOps.fit(img_pil, target_size_px, method=PILImage.Resampling.LANCZOS)
-                            # 存入 BytesIO
                             img_buffer = BytesIO()
                             img_cropped.save(img_buffer, format='PNG')
                             img_buffer.seek(0)
-                            # 創建 ReportLab Image 物件
                             rl_img = Image(img_buffer, width=img_width_pt, height=img_height_pt)
                             img_row.append(rl_img)
                         except Exception as img_err:
                             st.error(f"處理圖片 {img_file.name} 時發生錯誤: {img_err}")
-                            # 添加一個錯誤占位符
                             img_row.append(Paragraph(f"[圖片錯誤: {img_file.name}]", styles['CJKNormal']))
                     else:
-                        img_row.append(Spacer(img_width_pt, img_height_pt)) # 如果是奇數張，用空白填充
+                        img_row.append(Spacer(img_width_pt, img_height_pt)) # 奇數張時填充
 
-                # 將一對圖片放入表格中以控制佈局
                 img_table = Table([img_row], colWidths=[img_width_pt, img_width_pt])
                 img_table.setStyle(TableStyle([
-                    ('LEFTPADDING', (1,0), (1,0), img_margin), # 在第二張圖左側加邊距
+                    ('LEFTPADDING', (1,0), (1,0), img_margin),
                     ('VALIGN', (0,0), (-1,-1), 'TOP'),
                 ]))
                 story.append(img_table)
-                story.append(Spacer(1, 0.5*units.cm)) # 圖片行之間的垂直間距
+                story.append(Spacer(1, 0.5*units.cm))
 
         # --- PDF 內容 - 結尾記錄人 ---
         story.append(Spacer(1, 1*units.cm)) # 與上方內容的間距
@@ -498,3 +499,4 @@ with col_export2:
             st.error("可能的原因包括：中文字體問題、圖片處理錯誤或 ReportLab 內部錯誤。請檢查 Streamlit 終端輸出獲取更詳細的錯誤信息。")
 
 # --- Script End ---
+
