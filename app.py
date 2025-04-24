@@ -313,69 +313,38 @@ with col_export2:
 
         # --- PDF 樣式設定 ---
         styles = getSampleStyleSheet()
-        # 更新樣式以使用註冊的中文字體
         styles.add(ParagraphStyle(name='CJKNormal', parent=styles['Normal'], fontName=CJK_FONT_NAME, fontSize=10, alignment=TA_LEFT))
         styles.add(ParagraphStyle(name='CJKBold', parent=styles['CJKNormal'], fontName=CJK_FONT_NAME, fontSize=10, alignment=TA_LEFT))
         styles.add(ParagraphStyle(name='CJKHeading1', parent=styles['h1'], fontName=CJK_FONT_NAME, fontSize=18, alignment=TA_CENTER, spaceAfter=12))
-        # ******** 修改：確保 CJKHeading2 靠左對齊 ********
-        # 移除 parent 繼承，明確設定所有屬性，確保 alignment=TA_LEFT 生效
-        styles.add(ParagraphStyle(name='CJKHeading2',
-                                  fontName=CJK_FONT_NAME,
-                                  fontSize=14,
-                                  leading=17, # 參考 h2 的 leading
-                                  alignment=TA_LEFT, # 明確設為靠左
-                                  spaceBefore=6, # 參考 h2
-                                  spaceAfter=6))
-        # ********************************************
+        styles.add(ParagraphStyle(name='CJKHeading2', fontName=CJK_FONT_NAME, fontSize=14, leading=17, alignment=TA_LEFT, spaceBefore=6, spaceAfter=6))
         styles.add(ParagraphStyle(name='CJKTableContent', parent=styles['Normal'], fontName=CJK_FONT_NAME, fontSize=9, alignment=TA_CENTER))
         styles.add(ParagraphStyle(name='CJKTableContentLeft', parent=styles['CJKTableContent'], alignment=TA_LEFT))
-        # 定義粗體的 Footer 樣式
         styles.add(ParagraphStyle(name='CJKFooterBold', parent=styles['Normal'], fontName=CJK_FONT_NAME, fontSize=9, alignment=TA_LEFT))
 
         # --- PDF 文件模板 ---
-        doc = SimpleDocTemplate(pdf_buffer, pagesize=A4,
-                                leftMargin=margin, rightMargin=margin,
-                                topMargin=margin, bottomMargin=margin,
-                                title=f"安裝日記_{install_date}",
-                                author="工廠安裝日記自動生成器")
-        story = [] # PDF 內容的流程物件列表
+        doc = SimpleDocTemplate(pdf_buffer, pagesize=A4, leftMargin=margin, rightMargin=margin, topMargin=margin, bottomMargin=margin, title=f"安裝日記_{install_date}", author="工廠安裝日記自動生成器")
+        story = []
 
         # --- PDF 內容 - 第一頁 ---
         story.append(Paragraph("工廠安裝日記", styles['CJKHeading1']))
         story.append(Spacer(1, 0.5*units.cm))
-
-        # 基本資訊表格
-        basic_info_data = [
-            [Paragraph("<b>日期</b>", styles['CJKNormal']), Paragraph(str(install_date), styles['CJKNormal'])],
-            [Paragraph("<b>天氣</b>", styles['CJKNormal']), Paragraph(weather, styles['CJKNormal'])],
-        ]
+        basic_info_data = [[Paragraph("<b>日期</b>", styles['CJKNormal']), Paragraph(str(install_date), styles['CJKNormal'])], [Paragraph("<b>天氣</b>", styles['CJKNormal']), Paragraph(weather, styles['CJKNormal'])]]
         basic_info_table = Table(basic_info_data, colWidths=[doc_width/4, doc_width*3/4])
         basic_info_table.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.grey), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
-        story.append(basic_info_table)
-        story.append(Spacer(1, 0.5*units.cm))
-
-        # 人力配置表格
-        story.append(Paragraph("人力配置", styles['CJKHeading2'])) # 使用更新後的樣式
+        story.append(basic_info_table); story.append(Spacer(1, 0.5*units.cm))
+        story.append(Paragraph("人力配置", styles['CJKHeading2']))
         staff_header = [Paragraph(f"<b>{h}</b>", styles['CJKTableContent']) for h in ["人員分類", *role_types, "總計"]]
         staff_table_data = [staff_header]
         for group in ["供應商人員", "外包人員"]:
-            group_counts = staff_data.get(group, [])
-            processed_counts = [int(c) for c in group_counts] # 假設都是數字
-            total = sum(processed_counts)
-            row_data_text = [Paragraph(group, styles['CJKTableContentLeft'])] + \
-                            [Paragraph(str(c), styles['CJKTableContent']) for c in processed_counts] + \
-                            [Paragraph(str(total), styles['CJKTableContent'])]
+            group_counts = staff_data.get(group, []); processed_counts = [int(c) for c in group_counts]; total = sum(processed_counts)
+            row_data_text = [Paragraph(group, styles['CJKTableContentLeft'])] + [Paragraph(str(c), styles['CJKTableContent']) for c in processed_counts] + [Paragraph(str(total), styles['CJKTableContent'])]
             staff_table_data.append(row_data_text)
-        # 修正欄寬以填滿 doc_width
         staff_col_widths = [doc_width*0.225] + [doc_width*0.15]*len(role_types) + [doc_width*0.175]
         staff_table = Table(staff_table_data, colWidths=staff_col_widths)
         staff_table.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (1,0), (-1,-1), 'CENTER')]))
-        story.append(staff_table)
-        story.append(Spacer(1, 0.5*units.cm))
-
-        # 裝機進度表格
+        story.append(staff_table); story.append(Spacer(1, 0.5*units.cm))
         if progress_entries:
-            story.append(Paragraph("裝機進度紀錄", styles['CJKHeading2'])) # 使用更新後的樣式
+            story.append(Paragraph("裝機進度紀錄", styles['CJKHeading2']))
             progress_header = [Paragraph(f"<b>{h}</b>", styles['CJKTableContent']) for h in ["機台", "項次", "內容", "人力", "備註"]]
             progress_table_data = [progress_header]
             for entry in progress_entries:
@@ -383,12 +352,9 @@ with col_export2:
                 progress_table_data.append(row_data_text)
             progress_table = Table(progress_table_data, colWidths=[doc_width*0.15, doc_width*0.1, doc_width*0.4, doc_width*0.1, doc_width*0.25])
             progress_table.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (1,1), (1,-1), 'CENTER'), ('ALIGN', (3,1), (3,-1), 'CENTER')]))
-            story.append(progress_table)
-            story.append(Spacer(1, 0.5*units.cm))
-
-        # 週邊工作表格
+            story.append(progress_table); story.append(Spacer(1, 0.5*units.cm))
         if side_entries:
-            story.append(Paragraph("週邊工作紀錄", styles['CJKHeading2'])) # 使用更新後的樣式
+            story.append(Paragraph("週邊工作紀錄", styles['CJKHeading2']))
             side_header = [Paragraph(f"<b>{h}</b>", styles['CJKTableContent']) for h in ["項次", "內容", "人力", "備註"]]
             side_table_data = [side_header]
             for entry in side_entries:
@@ -396,54 +362,72 @@ with col_export2:
                 side_table_data.append(row_data_text)
             side_table = Table(side_table_data, colWidths=[doc_width*0.1, doc_width*0.55, doc_width*0.1, doc_width*0.25])
             side_table.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (0,1), (0,-1), 'CENTER'), ('ALIGN', (2,1), (2,-1), 'CENTER')]))
-            story.append(side_table)
-            story.append(Spacer(1, 0.5*units.cm))
+            story.append(side_table); story.append(Spacer(1, 0.5*units.cm))
 
         # --- 換頁 ---
         story.append(PageBreak())
 
         # --- PDF 內容 - 第二頁 (圖片) ---
-        story.append(Paragraph("進度留影", styles['CJKHeading2'])) # 使用更新後的樣式
+        story.append(Paragraph("進度留影", styles['CJKHeading2']))
         story.append(Spacer(1, 0.5*units.cm))
 
         if photos:
             img_margin = 0.5 * units.cm
-            available_width = doc_width - img_margin
-            img_width_pt = available_width / 2
-            img_height_pt = 6 * units.cm
+            # ******** 修改：使用三欄表格佈局圖片 ********
+            # 計算每張圖片的寬度
+            img_width_pt = (doc_width - img_margin) / 2
+            img_height_pt = 6 * units.cm # 固定高度
+            # Pillow 裁剪尺寸
             target_width_px = int(img_width_pt * (4/3))
             target_height_px = int(img_height_pt * (4/3))
             target_size_px = (target_width_px, target_height_px)
 
-            image_pairs = []
             for i in range(0, len(photos), 2):
-                img_row = []
-                for j in range(2):
-                    photo_index = i + j
-                    if photo_index < len(photos):
-                        img_file = photos[photo_index]
-                        try:
-                            img_pil = PILImage.open(img_file); img_pil = ImageOps.exif_transpose(img_pil)
-                            img_cropped = ImageOps.fit(img_pil, target_size_px, method=PILImage.Resampling.LANCZOS)
-                            img_buffer = BytesIO(); img_cropped.save(img_buffer, format='PNG'); img_buffer.seek(0)
-                            rl_img = Image(img_buffer, width=img_width_pt, height=img_height_pt)
-                            img_row.append(rl_img)
-                        except Exception as img_err:
-                            st.error(f"處理圖片 {img_file.name} 時發生錯誤: {img_err}")
-                            img_row.append(Paragraph(f"[圖片錯誤: {img_file.name}]", styles['CJKNormal']))
-                    else:
-                        img_row.append(Spacer(img_width_pt, img_height_pt))
+                img_row_content = [] # 儲存這一行的內容 [img1, spacer, img2] 或 [img1, spacer, None]
+                # 處理左邊圖片
+                img_file_left = photos[i]
+                try:
+                    img_pil_left = PILImage.open(img_file_left); img_pil_left = ImageOps.exif_transpose(img_pil_left)
+                    img_cropped_left = ImageOps.fit(img_pil_left, target_size_px, method=PILImage.Resampling.LANCZOS)
+                    img_buffer_left = BytesIO(); img_cropped_left.save(img_buffer_left, format='PNG'); img_buffer_left.seek(0)
+                    rl_img_left = Image(img_buffer_left, width=img_width_pt, height=img_height_pt)
+                    img_row_content.append(rl_img_left)
+                except Exception as img_err:
+                    st.error(f"處理圖片 {img_file_left.name} 時發生錯誤: {img_err}")
+                    img_row_content.append(Paragraph(f"[圖片錯誤: {img_file_left.name}]", styles['CJKNormal']))
 
-                img_table = Table([img_row], colWidths=[img_width_pt, img_width_pt])
-                img_table.setStyle(TableStyle([('LEFTPADDING', (1,0), (1,0), img_margin), ('VALIGN', (0,0), (-1,-1), 'TOP')]))
+                # 添加中間的間隔
+                img_row_content.append(Spacer(img_margin, 1)) # 寬度為 img_margin, 高度隨意
+
+                # 處理右邊圖片 (如果存在)
+                if i + 1 < len(photos):
+                    img_file_right = photos[i+1]
+                    try:
+                        img_pil_right = PILImage.open(img_file_right); img_pil_right = ImageOps.exif_transpose(img_pil_right)
+                        img_cropped_right = ImageOps.fit(img_pil_right, target_size_px, method=PILImage.Resampling.LANCZOS)
+                        img_buffer_right = BytesIO(); img_cropped_right.save(img_buffer_right, format='PNG'); img_buffer_right.seek(0)
+                        rl_img_right = Image(img_buffer_right, width=img_width_pt, height=img_height_pt)
+                        img_row_content.append(rl_img_right)
+                    except Exception as img_err:
+                        st.error(f"處理圖片 {img_file_right.name} 時發生錯誤: {img_err}")
+                        img_row_content.append(Paragraph(f"[圖片錯誤: {img_file_right.name}]", styles['CJKNormal']))
+                else:
+                    # 如果是奇數張圖片，右邊留空
+                    img_row_content.append(Spacer(img_width_pt, img_height_pt)) # 用 Spacer 佔位
+
+                # 創建三欄表格
+                img_table = Table([img_row_content], colWidths=[img_width_pt, img_margin, img_width_pt])
+                # 移除之前的 LEFTPADDING 樣式，設定垂直對齊
+                img_table.setStyle(TableStyle([
+                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ]))
                 story.append(img_table)
-                story.append(Spacer(1, 0.5*units.cm))
+                story.append(Spacer(1, 0.5*units.cm)) # 行間距
+            # ******************************************
 
         # --- PDF 內容 - 結尾記錄人 ---
         story.append(Spacer(1, 1*units.cm))
-        # ******** 修改：使用粗體標籤 <b>...</b> 並使用 CJKFooterBold 樣式 ********
         story.append(Paragraph(f"<b>記錄人： {recorder}</b>", styles['CJKFooterBold']))
-        # ******************************************************************
 
         # --- 生成 PDF ---
         try:
