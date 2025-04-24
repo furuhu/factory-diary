@@ -94,6 +94,13 @@ photos = st.file_uploader(
 
 # --- 產生 Excel 按鈕 ---
 if st.button("✅ 產出 Excel"):
+        # +++++ DEBUGGING START +++++
+    st.subheader("--- DEBUG INFO ---")
+    st.write("Collected staff_data right after button click:")
+    st.write(staff_data) # <<<<<<<<<<<< 加入這行
+    st.write("--------------------")
+    # +++++ DEBUGGING END ++++++
+    
     # if not photos:
     #     st.warning("尚未上傳任何照片。確定要產生沒有照片的報告嗎？")
 
