@@ -198,15 +198,15 @@ if st.button("✅ 產出 Excel"):
             write_styled_cell(current_row, col_idx, header_text, bold_font, center_align_wrap)
     current_row += 1
 
-    # 人力配置數據不合併
-    for group in ["日商人員", "外包人員"]:
-        total = sum(staff_data[group])
-        row_data = [group, *staff_data[group], total]
-        for col_idx, cell_value in enumerate(row_data, 1):
-             if col_idx <= NUM_COLS_TOTAL:
-                align = left_align_wrap if col_idx == 1 else center_align_wrap
-                write_styled_cell(current_row, col_idx, cell_value, normal_font, align)
-    current_row += 1
+# 人力配置數據不合併
+for group in ["日商人員", "外包人員"]:
+    total = sum(staff_data[group])
+    row_data = [group, *staff_data[group], total]
+    for col_idx, cell_value in enumerate(row_data, 1):
+         if col_idx <= NUM_COLS_TOTAL:
+            align = left_align_wrap if col_idx == 1 else center_align_wrap
+            write_styled_cell(current_row, col_idx, cell_value, normal_font, align)
+    current_row += 1  # 在這裡增加縮排，每處理完一個群組就增加行指針
 
     ws.row_dimensions[current_row].height = DEFAULT_ROW_HEIGHT # 空行
     current_row += 1
