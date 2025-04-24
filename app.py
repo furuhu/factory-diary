@@ -234,66 +234,55 @@ if st.button("✅ 產出 Excel"):
 
         # --- 計算圖片目標像素尺寸 (用於裁剪) ---
         try:
-            # 估算 3 個欄位的像素寬度 (非常粗略)
             default_char_width_approx = 7
             target_img_width_px = int(DEFAULT_COL_WIDTH * 3 * default_char_width_approx)
         except:
             target_img_width_px = int(18 * 3 * 7) # Fallback
 
-        # 將列高 (points) 轉換為像素 (基於 96 DPI, 1 point = 1/72 inch, 1 inch = 96 px => 1 point = 96/72 = 4/3 px)
-        # 或者更常見的轉換是基於 72 DPI (1 point = 1 pixel)，但 Excel 列高更接近 96 DPI
-        # 這裡使用 1 point = 0.75 pixel 的倒數，即 1 point = 4/3 pixel
-        # target_img_height_px = int(IMAGE_ROW_HEIGHT * (4/3)) # 另一種轉換方式
-        # 使用之前驗證過的 0.75 轉換 (1 pixel = 0.75 point)
-        target_img_height_px = int(IMAGE_ROW_HEIGHT / 0.75) # 使用完整的列高進行裁剪
+        target_img_height_px = int(IMAGE_ROW_HEIGHT / 0.75)
+
+        # ******** 新增：微調寬度以避免溢出 ********
+        width_adjustment = 8 # 減去 8 個像素作為容錯空間 (可調整)
+        adjusted_target_width_px = max(1, target_img_width_px - width_adjustment) # 確保寬度至少為 1
+        # *****************************************
 
         # 圖片排列設定
         img_col_width = 3; num_img_cols = 2
 
         # 遍歷照片並放置
         for i in range(0, len(photos), num_img_cols):
-            ws.row_dimensions[current_row].height = IMAGE_ROW_HEIGHT # 設定圖片列的目標高度
-            ws.row_dimensions[current_row + 1].height = DEFAULT_ROW_HEIGHT # 說明列高度
+            ws.row_dimensions[current_row].height = IMAGE_ROW_HEIGHT
+            ws.row_dimensions[current_row + 1].height = DEFAULT_ROW_HEIGHT
 
             for j in range(num_img_cols):
                 photo_index = i + j
                 if photo_index < len(photos):
                     img_file = photos[photo_index]; filename = img_file.name
                     try:
-                        # 讀取、校正方向
                         img = PILImage.open(img_file)
                         img = ImageOps.exif_transpose(img)
                         img_w, img_h = img.size
                         if img_w == 0 or img_h == 0: raise ValueError("圖片寬高為0")
 
-                        # ******** 修改：使用 ImageOps.fit 進行縮放和置中裁剪 ********
-                        target_size = (target_img_width_px, target_img_height_px)
-                        # method=PILImage.Resampling.LANCZOS 提供較好的縮放品質
+                        # ******** 修改：使用調整後的寬度進行裁剪 ********
+                        target_size = (adjusted_target_width_px, target_img_height_px)
                         img_cropped = ImageOps.fit(img, target_size, method=PILImage.Resampling.LANCZOS)
-                        # **********************************************************
+                        # *********************************************
 
-                        # 將裁剪後的圖片存入記憶體緩衝區
                         img_buffer = BytesIO()
-                        img_cropped.save(img_buffer, format='PNG') # 使用裁剪後的 img_cropped
+                        img_cropped.save(img_buffer, format='PNG')
                         img_buffer.seek(0)
 
-                        # 計算圖片放置位置
                         col_start = 1 + j * img_col_width; anchor_cell = f"{get_column_letter(col_start)}{current_row}"
-
-                        # 添加圖片到 Excel
                         xl_img = XLImage(img_buffer)
-                        # 注意：即使圖片被裁剪了，add_image 仍然只是將其錨定到左上角
-                        # 視覺上它會填滿，因為我們設定了列高 IMAGE_ROW_HEIGHT
                         ws.add_image(xl_img, anchor_cell)
 
-                        # 合併圖片下方的說明儲存格並寫入文字
                         col_end = col_start + img_col_width - 1
                         merge_range_caption = f"{get_column_letter(col_start)}{current_row + 1}:{get_column_letter(col_end)}{current_row + 1}"
                         ws.merge_cells(merge_range_caption)
                         write_styled_cell(current_row + 1, col_start, f"說明：{filename}", normal_font, center_align_wrap)
                         for c_idx in range(col_start + 1, col_end + 1): apply_styles_only(current_row + 1, c_idx, normal_font, center_align_wrap, thin_border)
 
-                        # 為圖片所在的儲存格區域添加邊框
                         for r_idx in [current_row]:
                             for c_idx in range(col_start, col_end + 1): apply_styles_only(r_idx, c_idx, normal_font, Alignment(vertical="center"), thin_border)
 
