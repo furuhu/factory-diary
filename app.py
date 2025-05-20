@@ -2,7 +2,7 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
-from openpyxl import Workbook, load_workbook # <-- 導入 load_workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, Border, Side, Alignment
 from PIL import Image as PILImage, ImageOps
 from openpyxl.drawing.image import Image as XLImage
@@ -31,36 +31,43 @@ st.set_page_config(page_title="工廠安裝日記", layout="wide")
 try:
     pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
     CJK_FONT_NAME = 'STSong-Light'
-    # 將字體加載訊息移到主區域，避免首次運行時因側邊欄未完全加載而出錯
-    # st.sidebar.success("中文字體 (STSong-Light) 加載成功。")
 except Exception as e:
     CJK_FONT_NAME = 'Helvetica' # Fallback font
-    # st.sidebar.warning(f"無法加載中文字體 STSong-Light ({e})，中文可能無法在 PDF 中正確顯示。將使用 {CJK_FONT_NAME}。")
 
 # --- Streamlit 應用程式標題 ---
 st.title("🛠️ 工廠安裝日記自動生成器")
-# 在標題後顯示字體加載狀態
 if CJK_FONT_NAME == 'STSong-Light':
     st.success("中文字體 (STSong-Light) 加載成功，可用於 PDF 導出。")
 else:
     st.warning(f"無法加載中文字體 STSong-Light，PDF 中的中文可能無法正確顯示。將使用 {CJK_FONT_NAME}。")
 
+# --- 新增：報告標題 ---
+st.header("📝 報告標題")
+report_title_input = st.text_input("請輸入報告主標題 (例如：XX專案安裝日記 - YYY設備)")
+
 
 # --- 基本資料欄位 ---
 st.header("📅 基本資訊")
-col1, col2, col3 = st.columns(3)
+col1, col3 = st.columns(2) # 移除天氣欄位後，改為2欄
 with col1:
-    install_date = st.date_input("安裝日期 (將作為新分頁名稱)", value=date.today()) # 提示日期用途
-with col2:
-    weather_options = ["晴", "陰", "多雲", "陣雨", "雷陣雨", "小雨", "大雨", "其他"]
-    weather = st.selectbox("天氣", options=weather_options, index=0)
+    install_date = st.date_input("安裝日期 (將作為新分頁名稱)", value=date.today())
+# with col2: # 天氣欄位已刪除
+    # weather_options = ["晴", "陰", "多雲", "陣雨", "雷陣雨", "小雨", "大雨", "其他"]
+    # weather = st.selectbox("天氣", options=weather_options, index=0)
 with col3:
     recorder = st.text_input("記錄人")
 
-# --- 人員配置 ---
+# --- 新增：參加人員 ---
+st.header("🧑‍🤝‍🧑 參加人員")
+attendees = st.text_area("請輸入參加人員 (每行一位，或用逗號分隔)", height=100)
+
+
+# --- 人力配置 ---
 st.header("👥 人力配置")
 st.write("請填寫供應商人員與外包人員的分類人數")
-role_types = ["機械", "電機", "土木", "軟體"]
+# ******** 修改：土木 -> 業務 ********
+role_types = ["機械", "電機", "業務", "軟體"]
+# ***********************************
 staff_data = {}
 # 供應商人員輸入
 cols_sup = st.columns(len(role_types) + 1)
@@ -88,7 +95,7 @@ if add_machine_button and new_machine_name:
 progress_entries = []
 for idx, machine_name in enumerate(st.session_state["machine_sections"]):
     with st.expander(f"🔧 {machine_name} (點此展開/收合)", expanded=True):
-        for i in range(1, 5):
+        for i in range(1, 5): # 裝機進度維持4項
             st.markdown(f"**第 {i} 項**"); cols = st.columns([4, 1, 2])
             content = cols[0].text_input(f"內容", key=f"machine_{idx}_content_{i}")
             manpower = cols[1].number_input(f"人力", key=f"machine_{idx}_manpower_{i}", min_value=0, step=1)
@@ -96,9 +103,11 @@ for idx, machine_name in enumerate(st.session_state["machine_sections"]):
             if content: progress_entries.append([machine_name, i, content, manpower, note])
 
 # --- 週邊工作 ---
-st.header("🔧 週邊工作紀錄（最多 6 項）")
+st.header("🔧 週邊工作紀錄")
+# ******** 修改：增加到 10 項 ********
 side_entries = []
-for i in range(1, 7):
+for i in range(1, 11): # 項目 1 到 10
+# ***********************************
     st.markdown(f"**第 {i} 項**"); cols = st.columns([4, 1, 2])
     content = cols[0].text_input(f"內容 ", key=f"side_content_{i}")
     manpower = cols[1].number_input(f"人力 ", key=f"side_manpower_{i}", min_value=0, step=1)
@@ -121,6 +130,7 @@ col_export1, col_export2 = st.columns(2)
 # --- 輔助函數：定義 Excel 樣式 (移到按鈕外部) ---
 bold_font_excel = Font(name="標楷體", size=11, bold=True)
 normal_font_excel = Font(name="標楷體", size=11)
+title_font_excel = Font(name="標楷體", size=14, bold=True) # 新增報告標題字體
 thin_border_side_excel = Side(style='thin', color='000000')
 thin_border_excel = Border(left=thin_border_side_excel, right=thin_border_side_excel, top=thin_border_side_excel, bottom=thin_border_side_excel)
 center_align_wrap_excel = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -131,15 +141,13 @@ IMAGE_ROW_HEIGHT_EXCEL = 120
 NUM_COLS_TOTAL_EXCEL = 6
 
 # --- 輔助函數：將一天資料寫入指定的 Excel 工作表 ---
-def write_day_to_excel_sheet(ws, install_date_ws, weather_ws, recorder_ws, staff_data_ws, progress_entries_ws, side_entries_ws, photos_ws):
+def write_day_to_excel_sheet(ws, report_title_ws, install_date_ws, attendees_ws, recorder_ws, staff_data_ws, progress_entries_ws, side_entries_ws, photos_ws):
     """將一天的所有資料寫入指定的 openpyxl worksheet (ws)"""
 
-    # 設定欄寬和起始行
     for i in range(1, NUM_COLS_TOTAL_EXCEL + 1):
         ws.column_dimensions[get_column_letter(i)].width = DEFAULT_COL_WIDTH_EXCEL
     current_row_ws = 1
 
-    # 內部輔助函數 (避免重複定義樣式)
     def write_styled_cell_internal(row, col, value, font, alignment, border=thin_border_excel):
         cell = ws.cell(row=row, column=col)
         cell.value = value; cell.font = font; cell.alignment = alignment
@@ -154,21 +162,36 @@ def write_day_to_excel_sheet(ws, install_date_ws, weather_ws, recorder_ws, staff
         current_height = ws.row_dimensions[row].height
         if current_height is None or current_height < DEFAULT_ROW_HEIGHT_EXCEL: ws.row_dimensions[row].height = DEFAULT_ROW_HEIGHT_EXCEL
 
+    # --- 新增：寫入報告標題 ---
+    if report_title_ws:
+        ws.merge_cells(start_row=current_row_ws, start_column=1, end_row=current_row_ws, end_column=NUM_COLS_TOTAL_EXCEL)
+        write_styled_cell_internal(current_row_ws, 1, report_title_ws, title_font_excel, center_align_wrap_excel, border=None)
+        ws.row_dimensions[current_row_ws].height = 30 # 加高標題列
+        current_row_ws += 1
+        ws.row_dimensions[current_row_ws].height = DEFAULT_ROW_HEIGHT_EXCEL # 空行
+        current_row_ws += 1
+
+
     # --- 寫入基本資訊 ---
     ws.merge_cells(start_row=current_row_ws, start_column=2, end_row=current_row_ws, end_column=NUM_COLS_TOTAL_EXCEL)
     write_styled_cell_internal(current_row_ws, 1, "日期", bold_font_excel, center_align_wrap_excel)
     write_styled_cell_internal(current_row_ws, 2, str(install_date_ws), normal_font_excel, center_align_wrap_excel)
     for c in range(3, NUM_COLS_TOTAL_EXCEL + 1): apply_styles_only_internal(current_row_ws, c, normal_font_excel, center_align_wrap_excel, thin_border_excel)
     current_row_ws += 1
-    ws.merge_cells(start_row=current_row_ws, start_column=2, end_row=current_row_ws, end_column=NUM_COLS_TOTAL_EXCEL)
-    write_styled_cell_internal(current_row_ws, 1, "天氣", bold_font_excel, center_align_wrap_excel)
-    write_styled_cell_internal(current_row_ws, 2, weather_ws, normal_font_excel, center_align_wrap_excel)
-    for c in range(3, NUM_COLS_TOTAL_EXCEL + 1): apply_styles_only_internal(current_row_ws, c, normal_font_excel, center_align_wrap_excel, thin_border_excel)
-    current_row_ws += 1
+    # 天氣欄位已刪除
+
+    # --- 新增：寫入參加人員 ---
+    if attendees_ws:
+        ws.merge_cells(start_row=current_row_ws, start_column=2, end_row=current_row_ws, end_column=NUM_COLS_TOTAL_EXCEL)
+        write_styled_cell_internal(current_row_ws, 1, "參加人員", bold_font_excel, left_align_wrap_excel) # 靠左
+        write_styled_cell_internal(current_row_ws, 2, attendees_ws, normal_font_excel, left_align_wrap_excel) # 靠左
+        for c in range(3, NUM_COLS_TOTAL_EXCEL + 1): apply_styles_only_internal(current_row_ws, c, normal_font_excel, left_align_wrap_excel, thin_border_excel)
+        current_row_ws += 1
+
     ws.row_dimensions[current_row_ws].height = DEFAULT_ROW_HEIGHT_EXCEL; current_row_ws += 1
 
     # --- 寫入人力配置 ---
-    header_staff = ["人員分類", *role_types, "總計"]
+    header_staff = ["人員分類", *role_types, "總計"] # role_types 已更新
     for col_idx, header_text in enumerate(header_staff, 1):
         if col_idx <= NUM_COLS_TOTAL_EXCEL: write_styled_cell_internal(current_row_ws, col_idx, header_text, bold_font_excel, center_align_wrap_excel)
     current_row_ws += 1
@@ -180,7 +203,7 @@ def write_day_to_excel_sheet(ws, install_date_ws, weather_ws, recorder_ws, staff
                 if isinstance(item, (int, float)): processed_counts.append(item)
                 else:
                     try: processed_counts.append(int(item))
-                    except (ValueError, TypeError): valid_data = False; processed_counts.append(0) # 簡化警告
+                    except (ValueError, TypeError): valid_data = False; processed_counts.append(0)
         else: valid_data = False; processed_counts = [0] * len(role_types)
         total = sum(processed_counts) if valid_data or processed_counts else 0
         row_data = [group, *processed_counts, total]
@@ -205,13 +228,13 @@ def write_day_to_excel_sheet(ws, install_date_ws, weather_ws, recorder_ws, staff
         for row_data in progress_entries_ws:
             machine, item, content, manpower, note = row_data
             write_styled_cell_internal(current_row_ws, 1, machine, normal_font_excel, left_align_wrap_excel); write_styled_cell_internal(current_row_ws, 2, item, normal_font_excel, center_align_wrap_excel)
-            ws.merge_cells(start_row=current_row_ws, start_column=3, end_row=current_row_ws, end_column=4); write_styled_cell_internal(current_row_ws, 3, content, normal_font_excel, left_align_wrap_excel)
-            apply_styles_only_internal(current_row_ws, 4, normal_font_excel, left_align_wrap_excel, thin_border_excel); write_styled_cell_internal(current_row_ws, 5, manpower, normal_font_excel, center_align_wrap_excel); write_styled_cell_internal(current_row_ws, 6, note, normal_font_excel, left_align_wrap_excel)
+            ws.merge_cells(start_row=current_row_ws, start_column=3, end_row=current_row_ws, end_column=4); write_styled_cell_internal(current_row_ws, 3, content, normal_font_excel, left_align_wrap_excel) # 內容靠左
+            apply_styles_only_internal(current_row_ws, 4, normal_font_excel, left_align_wrap_excel, thin_border_excel); write_styled_cell_internal(current_row_ws, 5, manpower, normal_font_excel, center_align_wrap_excel); write_styled_cell_internal(current_row_ws, 6, note, normal_font_excel, left_align_wrap_excel) # 備註靠左
             current_row_ws += 1
         ws.row_dimensions[current_row_ws].height = DEFAULT_ROW_HEIGHT_EXCEL; current_row_ws += 1
 
     # --- 寫入週邊工作 ---
-    if side_entries_ws:
+    if side_entries_ws: # 週邊工作項數已在 UI 增加
         ws.merge_cells(start_row=current_row_ws, start_column=1, end_row=current_row_ws, end_column=NUM_COLS_TOTAL_EXCEL)
         write_styled_cell_internal(current_row_ws, 1, "週邊工作", bold_font_excel, center_align_wrap_excel)
         for c in range(2, NUM_COLS_TOTAL_EXCEL + 1): apply_styles_only_internal(current_row_ws, c, bold_font_excel, center_align_wrap_excel, thin_border_excel)
@@ -225,26 +248,24 @@ def write_day_to_excel_sheet(ws, install_date_ws, weather_ws, recorder_ws, staff
         for row_data in side_entries_ws:
             item, content, manpower, note = row_data
             write_styled_cell_internal(current_row_ws, 1, item, normal_font_excel, center_align_wrap_excel)
-            ws.merge_cells(start_row=current_row_ws, start_column=2, end_row=current_row_ws, end_column=4); write_styled_cell_internal(current_row_ws, 2, content, normal_font_excel, left_align_wrap_excel)
+            ws.merge_cells(start_row=current_row_ws, start_column=2, end_row=current_row_ws, end_column=4); write_styled_cell_internal(current_row_ws, 2, content, normal_font_excel, left_align_wrap_excel) # 內容靠左
             apply_styles_only_internal(current_row_ws, 3, normal_font_excel, left_align_wrap_excel, thin_border_excel); apply_styles_only_internal(current_row_ws, 4, normal_font_excel, left_align_wrap_excel, thin_border_excel)
-            write_styled_cell_internal(current_row_ws, 5, manpower, normal_font_excel, center_align_wrap_excel); write_styled_cell_internal(current_row_ws, 6, note, normal_font_excel, left_align_wrap_excel)
+            write_styled_cell_internal(current_row_ws, 5, manpower, normal_font_excel, center_align_wrap_excel); write_styled_cell_internal(current_row_ws, 6, note, normal_font_excel, left_align_wrap_excel) # 備註靠左
             current_row_ws += 1
         ws.row_dimensions[current_row_ws].height = DEFAULT_ROW_HEIGHT_EXCEL; current_row_ws += 1
 
     # --- 處理圖片區域 ---
     if photos_ws:
-        ws.row_dimensions[current_row_ws].height = DEFAULT_ROW_HEIGHT_EXCEL; current_row_ws += 1 # 分隔空行
+        ws.row_dimensions[current_row_ws].height = DEFAULT_ROW_HEIGHT_EXCEL; current_row_ws += 1
         ws.merge_cells(start_row=current_row_ws, start_column=1, end_row=current_row_ws, end_column=NUM_COLS_TOTAL_EXCEL)
         write_styled_cell_internal(current_row_ws, 1, "進度留影", bold_font_excel, center_align_wrap_excel, border=None)
         for c in range(2, NUM_COLS_TOTAL_EXCEL + 1): apply_styles_only_internal(current_row_ws, c, bold_font_excel, center_align_wrap_excel, border=None)
         ws.row_dimensions[current_row_ws].height = DEFAULT_ROW_HEIGHT_EXCEL; current_row_ws += 1
-
         try: default_char_width_approx = 7; target_img_width_px = int(DEFAULT_COL_WIDTH_EXCEL * 3 * default_char_width_approx)
         except: target_img_width_px = int(18 * 3 * 7)
         target_img_height_px = int(IMAGE_ROW_HEIGHT_EXCEL / 0.75)
         width_adjustment = 8; adjusted_target_width_px = max(1, target_img_width_px - width_adjustment)
         img_col_width = 3; num_img_cols = 2
-
         for i in range(0, len(photos_ws), num_img_cols):
             ws.row_dimensions[current_row_ws].height = IMAGE_ROW_HEIGHT_EXCEL
             ws.row_dimensions[current_row_ws + 1].height = DEFAULT_ROW_HEIGHT_EXCEL
@@ -268,7 +289,6 @@ def write_day_to_excel_sheet(ws, install_date_ws, weather_ws, recorder_ws, staff
                         for r_idx in [current_row_ws]:
                             for c_idx in range(col_start, col_end + 1): apply_styles_only_internal(r_idx, c_idx, normal_font_excel, Alignment(vertical="center"), thin_border_excel)
                     except Exception as e:
-                        # 顯示錯誤但不中斷
                         st.error(f"處理圖片 {filename} 時發生錯誤 (將在 Excel 中標記): {e}")
                         col_start = 1 + j * img_col_width; col_end = col_start + img_col_width - 1
                         merge_range_caption = f"{get_column_letter(col_start)}{current_row_ws + 1}:{get_column_letter(col_end)}{current_row_ws + 1}"
@@ -279,13 +299,13 @@ def write_day_to_excel_sheet(ws, install_date_ws, weather_ws, recorder_ws, staff
             current_row_ws += 2
 
     # --- 添加記錄人資訊 (Excel 底部) ---
-    ws.row_dimensions[current_row_ws].height = DEFAULT_ROW_HEIGHT_EXCEL # 添加空行
+    ws.row_dimensions[current_row_ws].height = DEFAULT_ROW_HEIGHT_EXCEL
     current_row_ws += 1
     recorder_text = f"記錄人： {recorder_ws}"
-    merge_start_col = 1; merge_end_col = NUM_COLS_TOTAL_EXCEL # 合併 A 到 F
+    merge_start_col = 1; merge_end_col = NUM_COLS_TOTAL_EXCEL
     merge_range_recorder = f"{get_column_letter(merge_start_col)}{current_row_ws}:{get_column_letter(merge_end_col)}{current_row_ws}"
     try: ws.merge_cells(merge_range_recorder)
-    except Exception as merge_err: merge_end_col = merge_start_col # Fallback
+    except Exception as merge_err: merge_end_col = merge_start_col
     write_styled_cell_internal(current_row_ws, merge_start_col, recorder_text, normal_font_excel, left_align_wrap_excel, border=thin_border_excel)
     if merge_end_col > merge_start_col:
         for c in range(merge_start_col + 1, merge_end_col + 1): apply_styles_only_internal(current_row_ws, c, normal_font_excel, left_align_wrap_excel, border=thin_border_excel)
@@ -293,76 +313,56 @@ def write_day_to_excel_sheet(ws, install_date_ws, weather_ws, recorder_ws, staff
 # --- Excel 導出按鈕邏輯 ---
 with col_export1:
     if st.button("✅ 產出/合併 Excel"):
-        # 獲取當前輸入的資料
+        current_report_title = report_title_input
         current_install_date = install_date
-        current_weather = weather
+        current_attendees = attendees
         current_recorder = recorder
         current_staff_data = staff_data
         current_progress_entries = progress_entries
         current_side_entries = side_entries
         current_photos = photos
-        new_sheet_name = current_install_date.strftime("%Y-%m-%d") # 使用日期作為工作表名稱
+        new_sheet_name = current_install_date.strftime("%Y-%m-%d")
 
-        wb = None # 初始化工作簿變數
-
-        # 檢查是否上傳了舊檔案
+        wb = None
         if uploaded_excel_file is not None:
             try:
-                # 嘗試加載舊的工作簿
                 wb = load_workbook(uploaded_excel_file)
-                st.info(f"已加載舊檔案: {uploaded_excel_file.name}。將添加新分頁 '{new_sheet_name}'。")
-
-                # 檢查新工作表名稱是否已存在
+                st.info(f"已加載舊檔案: {uploaded_excel_file.name}。將添加/覆蓋分頁 '{new_sheet_name}'。")
                 if new_sheet_name in wb.sheetnames:
-                    st.warning(f"工作表 '{new_sheet_name}' 已存在於舊檔案中。將覆蓋該工作表的內容。")
-                    # 獲取現有工作表
+                    # st.warning(f"工作表 '{new_sheet_name}' 已存在，將覆蓋其內容。")
                     ws = wb[new_sheet_name]
-                    # 清空現有內容 (可選，或者直接覆蓋)
-                    # for row in ws.iter_rows():
-                    #     for cell in row:
-                    #         cell.value = None # 清空值
-                    #         # 可能還需要清除樣式、合併等，覆蓋通常更簡單
+                    # 簡單起見，這裡不清除舊內容，直接覆蓋
                 else:
-                    # 創建新工作表
                     ws = wb.create_sheet(title=new_sheet_name)
-
             except Exception as e:
                 st.error(f"讀取上傳的 Excel 檔案時出錯: {e}")
-                st.warning("無法合併舊檔案，將只產生包含今天資料的新 Excel 檔案。")
-                wb = None # 重置 wb，觸發創建新檔案的邏輯
-
-        # 如果沒有上傳檔案或加載失敗，創建新工作簿
+                st.warning("將創建全新的 Excel 檔案。")
+                wb = None
         if wb is None:
             wb = Workbook()
-            # 如果是新檔案，刪除預設創建的 "Sheet"
-            if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1:
-                 del wb["Sheet"]
-            # 創建第一個工作表
-            ws = wb.active # 獲取活動工作表 (通常是第一個)
-            ws.title = new_sheet_name # 設定第一個工作表的名稱
-            st.info(f"未上傳舊檔案或加載失敗，將創建新檔案並添加分頁 '{new_sheet_name}'。")
+            if "Sheet" in wb.sheetnames and len(wb.sheetnames) > 1 : # 移除預設工作表 (如果有多個)
+                del wb["Sheet"]
+            ws = wb.active
+            ws.title = new_sheet_name
+            # st.info(f"創建新 Excel 檔案，分頁 '{new_sheet_name}'。")
 
-
-        # 無論是新工作表還是覆蓋的舊工作表，都寫入今天的資料
         try:
-            write_day_to_excel_sheet(ws, current_install_date, current_weather, current_recorder,
+            write_day_to_excel_sheet(ws, current_report_title, current_install_date, current_attendees, current_recorder,
                                      current_staff_data, current_progress_entries, current_side_entries, current_photos)
-
-            # --- 儲存與下載 Excel ---
             excel_file = BytesIO()
             wb.save(excel_file)
             excel_file.seek(0)
-            # 決定下載檔名 (如果是合併，檔名保持舊檔名？或用最新日期？這裡用最新日期)
-            excel_file_name = f"安裝日記_{current_install_date.strftime('%Y%m%d')}.xlsx"
-            if uploaded_excel_file:
-                excel_file_name = f"安裝日記_{uploaded_excel_file.name.split('.')[0]}_合併_{current_install_date.strftime('%Y%m%d')}.xlsx" # 組合檔名
+            excel_file_name = f"{current_report_title}_{current_install_date.strftime('%Y%m%d')}.xlsx" if current_report_title else f"安裝日記_{current_install_date.strftime('%Y%m%d')}.xlsx"
+            if uploaded_excel_file and current_report_title: # 如果合併且有報告標題
+                 excel_file_name = f"{current_report_title}_合併_{current_install_date.strftime('%Y%m%d')}.xlsx"
+            elif uploaded_excel_file: # 如果合併但無報告標題
+                 excel_file_name = f"安裝日記_合併_{current_install_date.strftime('%Y%m%d')}.xlsx"
+
 
             st.download_button(label="📥 下載 Excel 檔案", data=excel_file, file_name=excel_file_name, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             st.success(f"檔案 {excel_file_name} 已成功產生/合併！")
-
         except Exception as write_err:
              st.error(f"寫入資料到 Excel 工作表 '{ws.title}' 時發生錯誤: {write_err}")
-
 
 # --- PDF 導出按鈕邏輯 (只產生當天資料) ---
 with col_export2:
@@ -376,7 +376,10 @@ with col_export2:
         styles = getSampleStyleSheet()
         styles.add(ParagraphStyle(name='CJKNormal', parent=styles['Normal'], fontName=CJK_FONT_NAME, fontSize=10, alignment=TA_LEFT))
         styles.add(ParagraphStyle(name='CJKBold', parent=styles['CJKNormal'], fontName=CJK_FONT_NAME, fontSize=10, alignment=TA_LEFT))
-        styles.add(ParagraphStyle(name='CJKHeading1', parent=styles['h1'], fontName=CJK_FONT_NAME, fontSize=18, alignment=TA_CENTER, spaceAfter=12))
+        # 主標題 (報告標題)
+        styles.add(ParagraphStyle(name='CJKMainTitle', parent=styles['h1'], fontName=CJK_FONT_NAME, fontSize=20, alignment=TA_CENTER, spaceAfter=6))
+        # 副標題 (工廠安裝日記)
+        styles.add(ParagraphStyle(name='CJKSubTitle', parent=styles['h2'], fontName=CJK_FONT_NAME, fontSize=16, alignment=TA_CENTER, spaceAfter=12))
         styles.add(ParagraphStyle(name='CJKHeading2', fontName=CJK_FONT_NAME, fontSize=14, leading=17, alignment=TA_LEFT, spaceBefore=6, spaceAfter=6))
         styles.add(ParagraphStyle(name='CJKTableContent', parent=styles['Normal'], fontName=CJK_FONT_NAME, fontSize=9, alignment=TA_CENTER))
         styles.add(ParagraphStyle(name='CJKTableContentLeft', parent=styles['CJKTableContent'], alignment=TA_LEFT))
@@ -386,12 +389,32 @@ with col_export2:
         story = []
 
         # --- PDF 內容 - 第一頁 ---
-        story.append(Paragraph("工廠安裝日記", styles['CJKHeading1']))
+        if report_title_input:
+            story.append(Paragraph(report_title_input, styles['CJKMainTitle']))
+            story.append(Paragraph("安裝日誌", styles['CJKSubTitle']))
+        else:
+            story.append(Paragraph("工廠安裝日記", styles['CJKMainTitle'])) # 如果沒有輸入報告標題，使用預設
         story.append(Spacer(1, 0.5*units.cm))
-        basic_info_data = [[Paragraph("<b>日期</b>", styles['CJKNormal']), Paragraph(str(install_date), styles['CJKNormal'])], [Paragraph("<b>天氣</b>", styles['CJKNormal']), Paragraph(weather, styles['CJKNormal'])]]
-        basic_info_table = Table(basic_info_data, colWidths=[doc_width/4, doc_width*3/4])
+
+        # 基本資訊表格
+        basic_info_data = [
+            [Paragraph("<b>日期</b>", styles['CJKNormal']), Paragraph(str(install_date), styles['CJKNormal'])],
+            # 天氣已刪除
+        ]
+        basic_info_table = Table(basic_info_data, colWidths=[doc_width/4, doc_width*3/4]) # 調整欄寬以適應兩欄
         basic_info_table.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.grey), ('VALIGN', (0,0), (-1,-1), 'MIDDLE')]))
-        story.append(basic_info_table); story.append(Spacer(1, 0.5*units.cm))
+        story.append(basic_info_table); story.append(Spacer(1, 0.2*units.cm)) # 縮小間距
+
+        # 參加人員
+        if attendees:
+            story.append(Paragraph("<b>參加人員：</b>", styles['CJKNormal']))
+            # 將 attendees 字串按換行符分割，然後用逗號連接（如果使用者用換行輸入）
+            # 或者直接顯示 text_area 的內容
+            attendees_display = attendees.replace('\n', ', ')
+            story.append(Paragraph(attendees_display, styles['CJKNormal']))
+            story.append(Spacer(1, 0.5*units.cm))
+
+
         story.append(Paragraph("人力配置", styles['CJKHeading2']))
         staff_header = [Paragraph(f"<b>{h}</b>", styles['CJKTableContent']) for h in ["人員分類", *role_types, "總計"]]
         staff_table_data = [staff_header]
@@ -403,6 +426,7 @@ with col_export2:
         staff_table = Table(staff_table_data, colWidths=staff_col_widths)
         staff_table.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (1,0), (-1,-1), 'CENTER')]))
         story.append(staff_table); story.append(Spacer(1, 0.5*units.cm))
+
         if progress_entries:
             story.append(Paragraph("裝機進度紀錄", styles['CJKHeading2']))
             progress_header = [Paragraph(f"<b>{h}</b>", styles['CJKTableContent']) for h in ["機台", "項次", "內容", "人力", "備註"]]
@@ -413,7 +437,8 @@ with col_export2:
             progress_table = Table(progress_table_data, colWidths=[doc_width*0.15, doc_width*0.1, doc_width*0.4, doc_width*0.1, doc_width*0.25])
             progress_table.setStyle(TableStyle([('GRID', (0,0), (-1,-1), 0.5, colors.black), ('BACKGROUND', (0,0), (-1,0), colors.lightgrey), ('VALIGN', (0,0), (-1,-1), 'MIDDLE'), ('ALIGN', (1,1), (1,-1), 'CENTER'), ('ALIGN', (3,1), (3,-1), 'CENTER')]))
             story.append(progress_table); story.append(Spacer(1, 0.5*units.cm))
-        if side_entries:
+
+        if side_entries: # 週邊工作項數已增加
             story.append(Paragraph("週邊工作紀錄", styles['CJKHeading2']))
             side_header = [Paragraph(f"<b>{h}</b>", styles['CJKTableContent']) for h in ["項次", "內容", "人力", "備註"]]
             side_table_data = [side_header]
@@ -482,7 +507,7 @@ with col_export2:
             doc.build(story)
             st.success("PDF 報告已成功產生！")
             pdf_buffer.seek(0)
-            pdf_file_name = f"安裝日記_{install_date}.pdf"
+            pdf_file_name = f"{report_title_input}_{install_date}.pdf" if report_title_input else f"安裝日記_{install_date}.pdf"
             st.download_button(label="📥 下載 PDF 報告", data=pdf_buffer, file_name=pdf_file_name, mime="application/pdf")
         except Exception as pdf_err:
             st.error(f"產生 PDF 時發生錯誤: {pdf_err}")
